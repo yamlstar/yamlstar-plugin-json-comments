@@ -67,9 +67,36 @@ jobs:
           exit 1
         fi
 
+  generate-sources:
+    name: Generate Go sources
+    needs: verify-release
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Check out tag
+      uses: actions/checkout@v5
+      with:
+        ref: ${{ inputs.version }}
+
+    - name: Check out reference parser
+      uses: actions/checkout@v5
+      with:
+        repository: yaml/yaml-reference-parser-clj
+        ref: ${{ env.YAML_PARSER_COMMIT }}
+        path: repos/yaml-reference-parser-clj
+
+    - name: Generate Go sources
+      run: make generate YAML_PARSER_DIR=repos/yaml-reference-parser-clj
+
+    - name: Upload generated sources
+      uses: actions/upload-artifact@v6
+      with:
+        name: generated-sources
+        path: internal/glojure
+        retention-days: 1
+
   build-linux:
     name: Build ${{ matrix.platform }}
-    needs: verify-release
+    needs: generate-sources
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -92,23 +119,30 @@ jobs:
         ref: ${{ env.YAML_PARSER_COMMIT }}
         path: repos/yaml-reference-parser-clj
 
+    - name: Download generated sources
+      uses: actions/download-artifact@v7
+      with:
+        name: generated-sources
+        path: internal/glojure
+
     - name: Build release archive
       run: |
         make dist \
           VERSION="$VERSION" \
           RELEASE_PLATFORM="${{ matrix.platform }}" \
-          YAML_PARSER_DIR=repos/yaml-reference-parser-clj
+          YAML_PARSER_DIR=repos/yaml-reference-parser-clj \
+          USE_GENERATED_SOURCES=1
 
     - name: Upload build artifact
       uses: actions/upload-artifact@v6
       with:
-        name: ${{ matrix.platform }}
+        name: release-${{ matrix.platform }}
         path: dist/*.tar.xz
         retention-days: 7
 
   build-macos:
     name: Build ${{ matrix.platform }}
-    needs: verify-release
+    needs: generate-sources
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -131,6 +165,12 @@ jobs:
         ref: ${{ env.YAML_PARSER_COMMIT }}
         path: repos/yaml-reference-parser-clj
 
+    - name: Download generated sources
+      uses: actions/download-artifact@v7
+      with:
+        name: generated-sources
+        path: internal/glojure
+
     - name: Install archive dependencies
       run: |
         brew list gnu-tar >/dev/null 2>&1 || brew install gnu-tar
@@ -142,12 +182,13 @@ jobs:
           VERSION="$VERSION" \
           RELEASE_PLATFORM="${{ matrix.platform }}" \
           YAML_PARSER_DIR=repos/yaml-reference-parser-clj \
+          USE_GENERATED_SOURCES=1 \
           TAR=gtar
 
     - name: Upload build artifact
       uses: actions/upload-artifact@v6
       with:
-        name: ${{ matrix.platform }}
+        name: release-${{ matrix.platform }}
         path: dist/*.tar.xz
         retention-days: 7
 
@@ -181,7 +222,7 @@ jobs:
     - name: Download build artifact
       uses: actions/download-artifact@v7
       with:
-        name: ${{ matrix.platform }}
+        name: release-${{ matrix.platform }}
         path: release-artifact
 
     - name: Test packaged library
@@ -215,7 +256,7 @@ jobs:
     - name: Download build artifact
       uses: actions/download-artifact@v7
       with:
-        name: ${{ matrix.platform }}
+        name: release-${{ matrix.platform }}
         path: release-artifact
 
     - name: Test packaged library
@@ -262,6 +303,7 @@ jobs:
     - name: Download release artifacts
       uses: actions/download-artifact@v7
       with:
+        pattern: release-*
         path: release-assets
         merge-multiple: true
 

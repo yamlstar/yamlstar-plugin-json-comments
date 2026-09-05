@@ -1,4 +1,4 @@
-MAKES-COMMIT := e4d2756ed838f3df16f1e33f20c993bd030ef01a
+MAKES-COMMIT := fbdf8dea23baa039bbc3f11bbb3cb790e2e66c69
 M ?= .cache/makes
 $(shell test -d $M || { \
   git clone -q https://github.com/makeplus/makes $M && \
@@ -35,6 +35,7 @@ LIB-NAME := lib$(PLUGIN).$(SO)
 LIB := lib/$(LIB-NAME)
 GENERATED_WORK := .cache/generated
 GENERATED_DIR := internal/glojure
+USE_GENERATED_SOURCES ?=
 SOURCE_CACHE := .cache/src
 RELEASE_LIB_DIR := .cache/release/lib
 RELEASE_LIB := $(RELEASE_LIB_DIR)/$(LIB-NAME)
@@ -90,6 +91,8 @@ default:: build
 
 build: $(LIB)
 
+generate: $(GENERATED_DIR)/.generated
+
 test: $(LIB) $(BB) $(SHELLCHECK)
 	$(BB) -cp src:$(YAML_PARSER_DIR)/src:test \
 	  -m yamlstar-plugin.json-comments-test
@@ -133,6 +136,7 @@ release-linux: | $(DOCKER)
 	$(DOCKER) run --rm \
 	  -e VERSION="$(VERSION)" \
 	  -e RELEASE_PLATFORM="$(RELEASE_PLATFORM)" \
+	  -e USE_GENERATED_SOURCES="$(USE_GENERATED_SOURCES)" \
 	  -e BUILD_UID="$$(id -u)" \
 	  -e BUILD_GID="$$(id -g)" \
 	  -v "$(CURDIR):/work" \
@@ -156,6 +160,7 @@ release-linux: | $(DOCKER)
 	    make release-archive \
 	      VERSION="$$VERSION" \
 	      RELEASE_PLATFORM="$$RELEASE_PLATFORM" \
+	      USE_GENERATED_SOURCES="$$USE_GENERATED_SOURCES" \
 	      YAML_PARSER_DIR=$(CONTAINER-PARSER-DIR); \
 	  '
 
@@ -218,6 +223,12 @@ ifndef v
 endif
 	$(RELEASE-CMD) build-github "$(v)"
 
+release-retry: $(PERL) $(GH)
+ifndef v
+	$(error 'make release-retry' requires v=NEW_VERSION)
+endif
+	$(RELEASE-CMD) retry "$(v)"
+
 $(ARCHIVE): release-check test-release plugin.edn \
   include/yamlstar_plugin.h License ReadMe.md util/test-archive
 	rm -rf "$(RELEASE_DIR)" "$@"
@@ -246,6 +257,11 @@ $(SOURCE_CACHE)/yaml_parser/%.clj: \
 	$(RM) "$@"
 	cp "$<" "$@"
 
+ifeq ($(USE_GENERATED_SOURCES),1)
+$(GENERATED_DIR)/.generated:
+	test -f $(GENERATED_DIR)/pkg/yamlstar_plugin/json_comments/loader.go
+	touch $@
+else
 $(GENERATED_DIR)/.generated: go.mod $(GLOAT_SOURCES) $(GLOAT)
 	rm -rf $(GENERATED_WORK)
 	mkdir -p $(GENERATED_WORK)
@@ -257,6 +273,7 @@ $(GENERATED_DIR)/.generated: go.mod $(GLOAT_SOURCES) $(GLOAT)
 	mkdir -p $(GENERATED_DIR)
 	cp -R $(GENERATED_WORK)/pkg $(GENERATED_DIR)/
 	touch $@
+endif
 
 $(LIB): $(GENERATED_DIR)/.generated main.go plugin.edn go.mod $(GO)
 	@mkdir -p $(dir $@)

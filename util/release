@@ -92,6 +92,7 @@ Individual steps:
   make release-tag v=NEW_VERSION
   make release-push v=NEW_VERSION
   make release-build-github v=NEW_VERSION
+  make release-retry v=VERSION
 
 Set a=1 to allow a release from a branch other than main.
 EOF
@@ -284,6 +285,44 @@ do_build_github() {
     --interval 10
 }
 
+do_retry() {
+  require_new_version
+  [[ $(current_version) == "$new_version" ]] ||
+    die "Version files do not contain $new_version"
+
+  local branch asset_count
+  branch=$(git branch --show-current)
+  [[ -n $branch ]] || die 'Cannot release from detached HEAD'
+  if [[ -z $dry_run && -z ${YS_RELEASE_ALLOW_BRANCH:-} ]]; then
+    [[ $branch == main ]] ||
+      die 'Releases require branch main; set a=1 to override'
+  fi
+  if [[ -z $dry_run && -n $(git status --porcelain) ]]; then
+    git status --short >&2
+    die 'Working tree is not clean'
+  fi
+
+  if [[ -n $dry_run ]]; then
+    printf 'Would update branch %s and tag %s, then rerun the workflow\n' \
+      "$branch" "$new_version"
+    return
+  fi
+
+  asset_count=$(
+    "$gh" release view "$new_version" \
+      --repo "$release_repo" \
+      --json assets \
+      --jq '.assets | length' 2>/dev/null || printf '0\n'
+  )
+  [[ $asset_count == 0 ]] ||
+    die "Release $new_version already has assets"
+
+  git tag -f "$new_version" HEAD
+  git push origin "$branch"
+  git push --force origin "refs/tags/$new_version"
+  do_build_github
+}
+
 do_pull() {
   local before
   if ! git rev-parse --abbrev-ref '@{upstream}' >/dev/null 2>&1; then
@@ -360,6 +399,10 @@ case $command in
   build-github)
     new_version=$old_version
     do_build_github
+    ;;
+  retry)
+    new_version=$old_version
+    do_retry
     ;;
   release)
     do_release

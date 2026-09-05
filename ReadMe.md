@@ -86,6 +86,12 @@ version files when needed, commits and tags the release, publishes the branch
 and tag, then dispatches and watches the GitHub release workflow.
 Use `d=1` to preview the release without changing anything.
 Use `a=1` to allow releasing from a branch other than `main`.
+After correcting a failed release build, update its branch and tag and start a
+new workflow run with:
+
+```sh
+make release-retry v=0.1.0
+```
 
 The GitHub release workflow requires an existing plain version tag such as
 `0.1.0`.
