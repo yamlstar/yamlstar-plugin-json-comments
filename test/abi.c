@@ -1,0 +1,146 @@
+#include "yamlstar_plugin.h"
+
+#include <dlfcn.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#ifndef PLUGIN_EXTENSION
+#define PLUGIN_EXTENSION "so"
+#endif
+
+typedef uint64_t (*abi_fn)(void);
+typedef int32_t (*manifest_fn)(uint8_t **, size_t *);
+typedef int32_t (*parse_fn)(const uint8_t *, size_t, const uint8_t *,
+                           size_t, uint8_t **, size_t *);
+typedef void (*free_fn)(uint8_t *);
+
+struct api {
+    parse_fn parse;
+    free_fn free_output;
+};
+
+static void fail(const char *message) {
+    fprintf(stderr, "%s\n", message);
+    exit(1);
+}
+
+static char *take_output(
+    struct api *api,
+    uint8_t *output,
+    size_t length
+) {
+    char *text = malloc(length + 1);
+    if (text == NULL) {
+        fail("malloc failed");
+    }
+    memcpy(text, output, length);
+    text[length] = '\0';
+    api->free_output(output);
+    return text;
+}
+
+static char *parse(struct api *api, const char *input, int32_t *status) {
+    static const char options[] = "{}";
+    uint8_t *output = NULL;
+    size_t length = 0;
+    *status = api->parse(
+        (const uint8_t *) input,
+        strlen(input),
+        (const uint8_t *) options,
+        strlen(options),
+        &output,
+        &length);
+    return take_output(api, output, length);
+}
+
+static void *parse_repeatedly(void *argument) {
+    struct api *api = argument;
+    for (int attempt = 0; attempt < 10; attempt++) {
+        int32_t status;
+        char *output = parse(api, "value: true// comment\n", &status);
+        if (status != 0 || strstr(output, "\"true\"") == NULL) {
+            fail("concurrent parse failed");
+        }
+        free(output);
+    }
+    return NULL;
+}
+
+int main(void) {
+    const char *directory = getenv("YAMLSTAR_PLUGIN_PATH");
+    if (directory == NULL) {
+        fail("YAMLSTAR_PLUGIN_PATH is not set");
+    }
+    char path[4096];
+    snprintf(path, sizeof(path),
+             "%s/libyamlstar-plugin-json-comments.%s",
+             directory, PLUGIN_EXTENSION);
+    void *handle = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+    if (handle == NULL) {
+        fail(dlerror());
+    }
+
+    abi_fn abi = (abi_fn) dlsym(handle, "yamlstar_plugin_v1_abi");
+    manifest_fn manifest = (manifest_fn) dlsym(
+        handle, "yamlstar_plugin_v1_manifest");
+    struct api api = {
+        .parse = (parse_fn) dlsym(handle, "yamlstar_plugin_v1_parse"),
+        .free_output = (free_fn) dlsym(
+            handle, "yamlstar_plugin_v1_free"),
+    };
+    if (abi == NULL || manifest == NULL || api.parse == NULL
+        || api.free_output == NULL) {
+        fail("plugin ABI symbol is missing");
+    }
+    if (abi() != 1) {
+        fail("plugin ABI version is not 1");
+    }
+
+    uint8_t *manifest_output = NULL;
+    size_t manifest_length = 0;
+    if (manifest(&manifest_output, &manifest_length) != 0) {
+        fail("manifest call failed");
+    }
+    char *manifest_text = take_output(
+        &api, manifest_output, manifest_length);
+    if (strstr(manifest_text, ":api \"json-comments\"") == NULL) {
+        fail("manifest API is incorrect");
+    }
+    free(manifest_text);
+
+    int32_t status;
+    char *output = parse(
+        &api,
+        "a: true// comment\nb: foo// not a comment\n"
+        "c: foo // comment\nd: http://not-a-comment.com\n",
+        &status);
+    if (status != 0 || strstr(output, "foo// not a comment") == NULL
+        || strstr(output, "http://not-a-comment.com") == NULL) {
+        fail("parse result is incorrect");
+    }
+    free(output);
+
+    output = parse(&api, "value: true/* comment\n", &status);
+    if (status != 1 || strstr(output, "Unterminated block comment") == NULL) {
+        fail("parse error result is incorrect");
+    }
+    free(output);
+
+    pthread_t threads[4];
+    for (int index = 0; index < 4; index++) {
+        if (pthread_create(&threads[index], NULL,
+                           parse_repeatedly, &api) != 0) {
+            fail("pthread_create failed");
+        }
+    }
+    for (int index = 0; index < 4; index++) {
+        if (pthread_join(threads[index], NULL) != 0) {
+            fail("pthread_join failed");
+        }
+    }
+
+    puts("shared plugin ABI test passed");
+    return 0;
+}
