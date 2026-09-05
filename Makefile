@@ -11,12 +11,15 @@ BABASHKA-VERSION := 1.13.220
 PERL-VERSION := 5.44.0.0
 
 include $M/init.mk
+include $M/gh.mk
 include $M/gloat.mk
 include $M/go.mk
 include $M/babashka.mk
 include $M/perl.mk
 include $M/docker.mk
 include $M/clean.mk
+include $M/shellcheck.mk
+include $M/shell.mk
 
 VERSION := 0.1.0
 MODULE := github.com/yamlstar/yamlstar-plugin-json-comments
@@ -54,6 +57,15 @@ MANYLINUX-REPO := $(MANYLINUX-REPO-$(RELEASE_PLATFORM))
 MANYLINUX-DIGEST := $(MANYLINUX-DIGEST-$(RELEASE_PLATFORM))
 MANYLINUX-IMAGE := $(MANYLINUX-REPO)@$(MANYLINUX-DIGEST)
 CONTAINER-PARSER-DIR := /yaml-reference-parser-clj
+RELEASE-REPO := yamlstar/yamlstar-plugin-json-comments
+RELEASE-WORKFLOW := release.yaml
+RELEASE-SCRIPT := util/release
+RELEASE-CMD = \
+  PERL=$(PERL-LOCAL)/bin/perl \
+  GH=$(GH) \
+  RELEASE_REPO=$(RELEASE-REPO) \
+  RELEASE_WORKFLOW=$(RELEASE-WORKFLOW) \
+  $(RELEASE-SCRIPT)
 
 PARSER_SOURCES := \
   $(SOURCE_CACHE)/yaml_parser/prelude.clj \
@@ -78,12 +90,13 @@ default:: build
 
 build: $(LIB)
 
-test: $(LIB) $(BB)
+test: $(LIB) $(BB) $(SHELLCHECK)
 	$(BB) -cp src:$(YAML_PARSER_DIR)/src:test \
 	  -m yamlstar-plugin.json-comments-test
 	$(GO) test ./...
 	$(call compile-abi-test,.cache/abi-test)
 	YAMLSTAR_PLUGIN_PATH=$(abspath lib) .cache/abi-test
+	$(SHELLCHECK) util/release util/test-archive
 
 test-release: $(RELEASE_LIB)
 	$(call compile-abi-test,.cache/release-abi-test)
@@ -147,6 +160,63 @@ release-linux: | $(DOCKER)
 	  '
 
 release-archive: $(ARCHIVE)
+
+export OLD_VERSION := $o
+export NEW_VERSION := $(or $v,$n)
+ifdef d
+export YS_RELEASE_DRYRUN := 1
+endif
+ifdef a
+export YS_RELEASE_ALLOW_BRANCH := 1
+endif
+
+release: $(PERL) $(GH)
+ifndef v
+	$(error 'make release' requires v=NEW_VERSION)
+endif
+	$(RELEASE-CMD) release "$(o)" "$(v)"
+
+release-list: $(PERL)
+	$(RELEASE-CMD) list
+
+release-sanity-check: $(PERL)
+ifndef v
+	$(error 'make release-sanity-check' requires v=NEW_VERSION)
+endif
+	$(RELEASE-CMD) sanity-check "$(o)" "$(v)"
+
+release-version-bump: $(PERL)
+ifndef v
+	$(error 'make release-version-bump' requires v=NEW_VERSION)
+endif
+	$(RELEASE-CMD) version-bump "$(o)" "$(v)"
+
+release-pull: $(PERL)
+	$(RELEASE-CMD) pull
+
+release-commit: $(PERL)
+ifndef v
+	$(error 'make release-commit' requires v=NEW_VERSION)
+endif
+	$(RELEASE-CMD) commit "$(v)"
+
+release-tag: $(PERL)
+ifndef v
+	$(error 'make release-tag' requires v=NEW_VERSION)
+endif
+	$(RELEASE-CMD) tag "$(v)"
+
+release-push: $(PERL)
+ifndef v
+	$(error 'make release-push' requires v=NEW_VERSION)
+endif
+	$(RELEASE-CMD) push "$(v)"
+
+release-build-github: $(PERL) $(GH)
+ifndef v
+	$(error 'make release-build-github' requires v=NEW_VERSION)
+endif
+	$(RELEASE-CMD) build-github "$(v)"
 
 $(ARCHIVE): release-check test-release plugin.edn \
   include/yamlstar_plugin.h License ReadMe.md util/test-archive

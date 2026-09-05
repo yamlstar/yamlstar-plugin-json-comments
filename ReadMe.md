@@ -63,6 +63,30 @@ On Linux this runs the final shared-library build and archive checks in the
 pinned manylinux container, so Docker must be available.
 On macOS it builds natively and uses GNU tar as `gtar`.
 
-The GitHub release workflow is dispatched manually with an existing plain
-version tag such as `0.1.0`.
+List the complete release process with:
+
+```sh
+make release-list
+```
+
+Publish an already-versioned first release with:
+
+```sh
+make release v=0.1.0
+```
+
+For subsequent releases, provide the old and new versions:
+
+```sh
+make release o=0.1.0 v=0.1.1
+```
+
+The interactive command checks the version and working tree, updates the
+version files when needed, commits and tags the release, publishes the branch
+and tag, then dispatches and watches the GitHub release workflow.
+Use `d=1` to preview the release without changing anything.
+Use `a=1` to allow releasing from a branch other than `main`.
+
+The GitHub release workflow requires an existing plain version tag such as
+`0.1.0`.
 It does not download, build, or test YAMLStar.
