@@ -293,10 +293,10 @@ do_retry() {
   local branch asset_count
   branch=$(git branch --show-current)
   [[ -n $branch ]] || die 'Cannot release from detached HEAD'
-  if [[ -z $dry_run && -z ${YS_RELEASE_ALLOW_BRANCH:-} ]]; then
-    [[ $branch == main ]] ||
-      die 'Releases require branch main; set a=1 to override'
-  fi
+  git rev-parse "$new_version" >/dev/null 2>&1 ||
+    die "Tag $new_version does not exist"
+  git merge-base --is-ancestor "$new_version^{commit}" HEAD ||
+    die "Tag $new_version is not an ancestor of HEAD"
   if [[ -z $dry_run && -n $(git status --porcelain) ]]; then
     git status --short >&2
     die 'Working tree is not clean'

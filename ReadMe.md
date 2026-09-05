@@ -85,7 +85,8 @@ The interactive command checks the version and working tree, updates the
 version files when needed, commits and tags the release, publishes the branch
 and tag, then dispatches and watches the GitHub release workflow.
 Use `d=1` to preview the release without changing anything.
-Use `a=1` to allow releasing from a branch other than `main`.
+Use `a=1` to allow the full release command to run from a branch other than
+`main`.
 After correcting a failed release build, update its branch and tag and start a
 new workflow run with:
 
