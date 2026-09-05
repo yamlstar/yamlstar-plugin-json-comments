@@ -1,0 +1,7 @@
+{:abi 1
+ :api "json-comments"
+ :name "json-comments"
+ :version "0.1.0"
+ :kind "event-source"
+ :requires {:parser "reference"}
+ :event-format "yamlstar-events-edn-v1"}

@@ -10,6 +10,10 @@
 #define PLUGIN_EXTENSION "so"
 #endif
 
+#ifndef PLUGIN_VERSION
+#define PLUGIN_VERSION "0.1.0"
+#endif
+
 typedef uint64_t (*abi_fn)(void);
 typedef int32_t (*manifest_fn)(uint8_t **, size_t *);
 typedef int32_t (*parse_fn)(const uint8_t *, size_t, const uint8_t *,
@@ -107,6 +111,10 @@ int main(void) {
         &api, manifest_output, manifest_length);
     if (strstr(manifest_text, ":api \"json-comments\"") == NULL) {
         fail("manifest API is incorrect");
+    }
+    if (strstr(manifest_text, ":version \"" PLUGIN_VERSION "\"")
+        == NULL) {
+        fail("manifest version is incorrect");
     }
     free(manifest_text);
 

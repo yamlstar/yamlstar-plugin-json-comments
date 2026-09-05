@@ -1,0 +1,64 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test-linux:
+    name: Test ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - platform: linux-x64
+          runner: ubuntu-22.04
+        - platform: linux-aarch64
+          runner: ubuntu-22.04-arm
+    steps:
+    - name: Check out plugin
+      uses: actions/checkout@v5
+
+    - name: Check out reference parser
+      uses: actions/checkout@v5
+      with:
+        repository: yaml/yaml-reference-parser-clj
+        ref: a867cac0568aeb453f9bfae0b2339da983019d07
+        path: repos/yaml-reference-parser-clj
+
+    - name: Test plugin
+      run: make test YAML_PARSER_DIR=repos/yaml-reference-parser-clj
+
+  test-macos:
+    name: Test ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - platform: macos-x64
+          runner: macos-15-intel
+        - platform: macos-arm64
+          runner: macos-15
+    steps:
+    - name: Check out plugin
+      uses: actions/checkout@v5
+
+    - name: Check out reference parser
+      uses: actions/checkout@v5
+      with:
+        repository: yaml/yaml-reference-parser-clj
+        ref: a867cac0568aeb453f9bfae0b2339da983019d07
+        path: repos/yaml-reference-parser-clj
+
+    - name: Test plugin
+      run: make test YAML_PARSER_DIR=repos/yaml-reference-parser-clj

@@ -1,3 +1,6 @@
 /.cache/
+/.cache-*/
+/dist/
 /internal/glojure/
 /lib/
+/repos/

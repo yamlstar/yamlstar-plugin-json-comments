@@ -7,6 +7,7 @@ package main
 import "C"
 
 import (
+	_ "embed"
 	"fmt"
 	"strconv"
 	"sync"
@@ -14,21 +15,16 @@ import (
 
 	"github.com/glojurelang/glojure/pkg/glj"
 	"github.com/glojurelang/glojure/pkg/lang"
-	_ "github.com/yaml/yamlstar-plugin-json-comments/internal/glojure/pkg/yaml_parser/core"
-	_ "github.com/yaml/yamlstar-plugin-json-comments/internal/glojure/pkg/yaml_parser/grammar"
-	_ "github.com/yaml/yamlstar-plugin-json-comments/internal/glojure/pkg/yaml_parser/parser"
-	_ "github.com/yaml/yamlstar-plugin-json-comments/internal/glojure/pkg/yaml_parser/prelude"
-	_ "github.com/yaml/yamlstar-plugin-json-comments/internal/glojure/pkg/yaml_parser/receiver"
-	_ "github.com/yaml/yamlstar-plugin-json-comments/internal/glojure/pkg/yamlstar_plugin/json_comments"
+	_ "github.com/yamlstar/yamlstar-plugin-json-comments/internal/glojure/pkg/yaml_parser/core"
+	_ "github.com/yamlstar/yamlstar-plugin-json-comments/internal/glojure/pkg/yaml_parser/grammar"
+	_ "github.com/yamlstar/yamlstar-plugin-json-comments/internal/glojure/pkg/yaml_parser/parser"
+	_ "github.com/yamlstar/yamlstar-plugin-json-comments/internal/glojure/pkg/yaml_parser/prelude"
+	_ "github.com/yamlstar/yamlstar-plugin-json-comments/internal/glojure/pkg/yaml_parser/receiver"
+	_ "github.com/yamlstar/yamlstar-plugin-json-comments/internal/glojure/pkg/yamlstar_plugin/json_comments"
 )
 
-const manifest = `{:abi 1
- :api "json-comments"
- :name "json-comments"
- :version "0.1.0"
- :kind "event-source"
- :requires {:parser "reference"}
- :event-format "yamlstar-events-edn-v1"}`
+//go:embed plugin.edn
+var manifest string
 
 var initializeOnce sync.Once
 var initializeErr error

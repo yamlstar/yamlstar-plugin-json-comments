@@ -1,0 +1,284 @@
+name: Release JSON Comments Plugin
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release, for example 0.1.0
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: release-${{ inputs.version }}
+  cancel-in-progress: false
+
+env:
+  VERSION: ${{ inputs.version }}
+  YAML_PARSER_COMMIT: a867cac0568aeb453f9bfae0b2339da983019d07
+
+jobs:
+  verify-release:
+    name: Verify release
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Check out tag
+      uses: actions/checkout@v5
+      with:
+        ref: ${{ inputs.version }}
+        fetch-depth: 0
+
+    - name: Check tag and version
+      run: |
+        if ! [[ $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "Invalid version: $VERSION" >&2
+          exit 1
+        fi
+        if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
+          echo "Tag does not exist: $VERSION" >&2
+          exit 1
+        fi
+        if [[ $(git rev-parse "$VERSION^{commit}") != \
+              $(git rev-parse HEAD) ]]; then
+          echo "Tag $VERSION does not point to checkout HEAD" >&2
+          exit 1
+        fi
+        manifest_version=$(
+          perl -ne 'print "$1\n" if /:version "([^"]+)"/' plugin.edn
+        )
+        if [[ $manifest_version != "$VERSION" ]]; then
+          echo "Plugin manifest does not match $VERSION" >&2
+          exit 1
+        fi
+
+    - name: Check existing release assets
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        if gh release view "$VERSION" --json assets \
+          --jq '.assets | length' 2>/dev/null | grep -q '^[1-9]'; then
+          echo "Release $VERSION already has assets" >&2
+          exit 1
+        fi
+
+  build-linux:
+    name: Build ${{ matrix.platform }}
+    needs: verify-release
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - platform: linux-x64
+          runner: ubuntu-22.04
+        - platform: linux-aarch64
+          runner: ubuntu-22.04-arm
+    steps:
+    - name: Check out tag
+      uses: actions/checkout@v5
+      with:
+        ref: ${{ inputs.version }}
+
+    - name: Check out reference parser
+      uses: actions/checkout@v5
+      with:
+        repository: yaml/yaml-reference-parser-clj
+        ref: ${{ env.YAML_PARSER_COMMIT }}
+        path: repos/yaml-reference-parser-clj
+
+    - name: Build release archive
+      run: |
+        make dist \
+          VERSION="$VERSION" \
+          RELEASE_PLATFORM="${{ matrix.platform }}" \
+          YAML_PARSER_DIR=repos/yaml-reference-parser-clj
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v6
+      with:
+        name: ${{ matrix.platform }}
+        path: dist/*.tar.xz
+        retention-days: 7
+
+  build-macos:
+    name: Build ${{ matrix.platform }}
+    needs: verify-release
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - platform: macos-x64
+          runner: macos-15-intel
+        - platform: macos-arm64
+          runner: macos-15
+    steps:
+    - name: Check out tag
+      uses: actions/checkout@v5
+      with:
+        ref: ${{ inputs.version }}
+
+    - name: Check out reference parser
+      uses: actions/checkout@v5
+      with:
+        repository: yaml/yaml-reference-parser-clj
+        ref: ${{ env.YAML_PARSER_COMMIT }}
+        path: repos/yaml-reference-parser-clj
+
+    - name: Install archive dependencies
+      run: |
+        brew list gnu-tar >/dev/null 2>&1 || brew install gnu-tar
+        brew list xz >/dev/null 2>&1 || brew install xz
+
+    - name: Build release archive
+      run: |
+        make dist \
+          VERSION="$VERSION" \
+          RELEASE_PLATFORM="${{ matrix.platform }}" \
+          YAML_PARSER_DIR=repos/yaml-reference-parser-clj \
+          TAR=gtar
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v6
+      with:
+        name: ${{ matrix.platform }}
+        path: dist/*.tar.xz
+        retention-days: 7
+
+  test-linux-assets:
+    name: Test ${{ matrix.platform }} asset
+    needs: build-linux
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - platform: linux-x64
+          runner: ubuntu-22.04
+          container: quay.io/pypa/manylinux_2_28_x86_64@sha256:53390351aeb4688114b02c36a23b3e6ce1166ee9b7afc5df1a4f776354fc764c
+        - platform: linux-aarch64
+          runner: ubuntu-22.04-arm
+          container: quay.io/pypa/manylinux_2_28_aarch64@sha256:ad74e53b713f3b07d8c889c526dc0c6500da9827b45e38739570875fef52e28f
+    steps:
+    - name: Install system dependencies
+      run: dnf install -y binutils file git make perl xz
+
+    - name: Check out tag
+      uses: actions/checkout@v5
+      with:
+        ref: ${{ inputs.version }}
+
+    - name: Configure Git workspace
+      run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+    - name: Download build artifact
+      uses: actions/download-artifact@v7
+      with:
+        name: ${{ matrix.platform }}
+        path: release-artifact
+
+    - name: Test packaged library
+      run: |
+        platform=${{ matrix.platform }}
+        name="yamlstar-plugin-json-comments-$VERSION-$platform.tar.xz"
+        archive="release-artifact/$name"
+        make test-archive \
+          ARCHIVE="$archive" \
+          RELEASE_PLATFORM="$platform" \
+          VERSION="$VERSION"
+
+  test-macos-assets:
+    name: Test ${{ matrix.platform }} asset
+    needs: build-macos
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - platform: macos-x64
+          runner: macos-15-intel
+        - platform: macos-arm64
+          runner: macos-15
+    steps:
+    - name: Check out tag
+      uses: actions/checkout@v5
+      with:
+        ref: ${{ inputs.version }}
+
+    - name: Download build artifact
+      uses: actions/download-artifact@v7
+      with:
+        name: ${{ matrix.platform }}
+        path: release-artifact
+
+    - name: Test packaged library
+      run: |
+        platform=${{ matrix.platform }}
+        name="yamlstar-plugin-json-comments-$VERSION-$platform.tar.xz"
+        archive="release-artifact/$name"
+        make test-archive \
+          ARCHIVE="$archive" \
+          RELEASE_PLATFORM="$platform" \
+          VERSION="$VERSION"
+
+  create-release:
+    name: Create GitHub prerelease
+    needs:
+    - test-linux-assets
+    - test-macos-assets
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+    - name: Create prerelease
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        if ! gh release view "$VERSION" \
+          --repo "${{ github.repository }}" >/dev/null 2>&1; then
+          gh release create "$VERSION" \
+            --repo "${{ github.repository }}" \
+            --title "JSON Comments Plugin $VERSION" \
+            --notes "Experimental YAMLStar JSON comments plugin binaries." \
+            --prerelease
+        fi
+
+  upload-assets:
+    name: Upload release assets
+    needs: create-release
+    runs-on: ubuntu-22.04
+    permissions:
+      attestations: write
+      contents: write
+      id-token: write
+    steps:
+    - name: Download release artifacts
+      uses: actions/download-artifact@v7
+      with:
+        path: release-assets
+        merge-multiple: true
+
+    - name: Generate checksums
+      working-directory: release-assets
+      run: sha256sum ./*.tar.xz > SHA256SUMS
+
+    - name: Attest release assets
+      uses: actions/attest@v4
+      with:
+        subject-path: release-assets/*
+
+    - name: Upload release assets
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        gh release upload "$VERSION" release-assets/* \
+          --repo "${{ github.repository }}" \
+          --clobber
+        gh release view "$VERSION" --repo "${{ github.repository }}"

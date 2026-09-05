@@ -1,4 +1,4 @@
-module github.com/yaml/yamlstar-plugin-json-comments
+module github.com/yamlstar/yamlstar-plugin-json-comments
 
 go 1.24
 
