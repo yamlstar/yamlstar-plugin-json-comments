@@ -98,12 +98,12 @@ test: $(LIB) $(BB) $(SHELLCHECK)
 	  -m yamlstar-plugin.json-comments-test
 	$(GO) test ./...
 	$(call compile-abi-test,.cache/abi-test)
-	YAMLSTAR_PLUGIN_PATH=$(abspath lib) .cache/abi-test
+	YAMLSTAR_LIBRARY_PATH=$(abspath lib) .cache/abi-test
 	$(SHELLCHECK) util/release util/test-archive
 
 test-release: $(RELEASE_LIB)
 	$(call compile-abi-test,.cache/release-abi-test)
-	YAMLSTAR_PLUGIN_PATH=$(abspath $(RELEASE_LIB_DIR)) \
+	YAMLSTAR_LIBRARY_PATH=$(abspath $(RELEASE_LIB_DIR)) \
 	  .cache/release-abi-test
 
 test-archive: $(PERL)
@@ -229,15 +229,15 @@ ifndef v
 endif
 	$(RELEASE-CMD) retry "$(v)"
 
-$(ARCHIVE): release-check test-release plugin.edn \
+$(ARCHIVE): Makefile release-check test-release plugin.edn \
   include/yamlstar_plugin.h License ReadMe.md util/test-archive
 	rm -rf "$(RELEASE_DIR)" "$@"
 	install -d \
-	  "$(RELEASE_DIR)/lib/yamlstar/plugins" \
+	  "$(RELEASE_DIR)/lib" \
 	  "$(RELEASE_DIR)/include/yamlstar" \
 	  "$(RELEASE_DIR)/share/yamlstar/plugins/json-comments"
 	install -m 755 "$(RELEASE_LIB)" \
-	  "$(RELEASE_DIR)/lib/yamlstar/plugins/$(LIB-NAME)"
+	  "$(RELEASE_DIR)/lib/$(LIB-NAME)"
 	install -m 644 include/yamlstar_plugin.h \
 	  "$(RELEASE_DIR)/include/yamlstar/"
 	install -m 644 plugin.edn \
@@ -295,5 +295,5 @@ format:
 	$(GO) fmt ./...
 
 install: $(LIB)
-	install -d $(PREFIX)/lib/yamlstar/plugins
-	install -m 755 $(LIB) $(PREFIX)/lib/yamlstar/plugins/
+	install -d $(PREFIX)/lib
+	install -m 755 $(LIB) $(PREFIX)/lib/

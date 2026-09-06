@@ -18,7 +18,7 @@ make build
 Select the resulting library by adding its directory to the search path:
 
 ```sh
-YAMLSTAR_PLUGIN_PATH=$PWD/lib yaml --plugin=json-comments
+YAMLSTAR_LIBRARY_PATH=$PWD/lib yaml --plugin=json-comments
 ```
 
 The plugin recognizes `//` line comments and `/* ... */` block comments.
@@ -45,10 +45,10 @@ Install the library for the current user by copying it from the unpacked
 archive:
 
 ```sh
-install -d "$HOME/.local/lib/yamlstar/plugins"
+install -d "$HOME/.local/lib"
 install -m 755 \
-  lib/yamlstar/plugins/libyamlstar-plugin-json-comments.so \
-  "$HOME/.local/lib/yamlstar/plugins/"
+  lib/libyamlstar-plugin-json-comments.so \
+  "$HOME/.local/lib/"
 ```
 
 Use the `.dylib` filename on macOS.

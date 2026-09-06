@@ -32,7 +32,7 @@ case $platform in
     ;;
 esac
 
-library_dir="$release_dir/lib/yamlstar/plugins"
+library_dir="$release_dir/lib"
 library="$library_dir/libyamlstar-plugin-json-comments.$extension"
 manifest="$release_dir/share/yamlstar/plugins/json-comments/plugin.edn"
 
@@ -53,7 +53,7 @@ read -r -a cc_command <<< "${CC:-cc}"
   "${link_flags[@]}" \
   -o "$work_dir/abi-test"
 
-YAMLSTAR_PLUGIN_PATH=$library_dir "$work_dir/abi-test"
+YAMLSTAR_LIBRARY_PATH=$library_dir "$work_dir/abi-test"
 
 description=$(file "$library")
 case $platform in

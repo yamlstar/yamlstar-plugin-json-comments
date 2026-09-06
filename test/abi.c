@@ -73,9 +73,9 @@ static void *parse_repeatedly(void *argument) {
 }
 
 int main(void) {
-    const char *directory = getenv("YAMLSTAR_PLUGIN_PATH");
+    const char *directory = getenv("YAMLSTAR_LIBRARY_PATH");
     if (directory == NULL) {
-        fail("YAMLSTAR_PLUGIN_PATH is not set");
+        fail("YAMLSTAR_LIBRARY_PATH is not set");
     }
     char path[4096];
     snprintf(path, sizeof(path),
