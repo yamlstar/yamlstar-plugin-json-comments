@@ -25,7 +25,7 @@ include $M/shell.mk
 PYTHON-VENV-SETUP := \
   $(UV) pip install --python $(PYTHON-VENV) setuptools wheel
 
-VERSION := 0.1.1
+VERSION := 0.1.2
 MODULE := github.com/yamlstar/yamlstar-plugin-json-comments
 YAML-PARSER-VERSION := 0.2.4
 YAML-PARSER-FILE := yaml-parser-$(YAML-PARSER-VERSION).jar
