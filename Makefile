@@ -1,4 +1,4 @@
-MAKES-COMMIT := fbdf8dea23baa039bbc3f11bbb3cb790e2e66c69
+MAKES-COMMIT := a7b80ec8f10ac700693278a559f315fccd50b5ad
 M ?= .cache/makes
 $(shell test -d $M || { \
   git clone -q https://github.com/makeplus/makes $M && \
@@ -6,7 +6,6 @@ $(shell test -d $M || { \
 })
 
 GO-VERSION := 1.27.1
-GLOAT-VERSION := 0.1.79
 BABASHKA-VERSION := 1.13.220
 PERL-VERSION := 5.44.0.0
 
@@ -23,12 +22,14 @@ include $M/shell.mk
 
 VERSION := 0.1.0
 MODULE := github.com/yamlstar/yamlstar-plugin-json-comments
-YAML-PARSER-COMMIT := a867cac0568aeb453f9bfae0b2339da983019d07
-YAML_PARSER_DIR ?= $(patsubst %/src/yaml_parser/core.clj,%, \
-  $(firstword \
-    $(wildcard \
-      repos/yaml-reference-parser-clj/src/yaml_parser/core.clj \
-      ../yaml-reference-parser-clj/src/yaml_parser/core.clj)))
+YAML-PARSER-VERSION := 0.2.4
+YAML-PARSER-FILE := yaml-parser-$(YAML-PARSER-VERSION).jar
+YAML-PARSER-JAR := .cache/$(YAML-PARSER-FILE)
+YAML-PARSER-BASE-URL := https://repo.clojars.org/org/yamlstar/yaml-parser
+YAML-PARSER-URL := $(YAML-PARSER-BASE-URL)/$(YAML-PARSER-VERSION)
+YAML-PARSER-URL := $(YAML-PARSER-URL)/$(YAML-PARSER-FILE)
+YAML-PARSER-SRC-DIR := .cache/yaml-parser-$(YAML-PARSER-VERSION)
+YAML-PARSER-SRC-STAMP := $(YAML-PARSER-SRC-DIR)/.extracted
 
 PLUGIN := yamlstar-plugin-json-comments
 LIB-NAME := lib$(PLUGIN).$(SO)
@@ -57,7 +58,6 @@ MANYLINUX-DIGEST-linux-aarch64 := \
 MANYLINUX-REPO := $(MANYLINUX-REPO-$(RELEASE_PLATFORM))
 MANYLINUX-DIGEST := $(MANYLINUX-DIGEST-$(RELEASE_PLATFORM))
 MANYLINUX-IMAGE := $(MANYLINUX-REPO)@$(MANYLINUX-DIGEST)
-CONTAINER-PARSER-DIR := /yaml-reference-parser-clj
 RELEASE-REPO := yamlstar/yamlstar-plugin-json-comments
 RELEASE-WORKFLOW := release.yaml
 RELEASE-SCRIPT := util/release
@@ -73,13 +73,15 @@ PARSER_SOURCES := \
   $(SOURCE_CACHE)/yaml_parser/parser.clj \
   $(SOURCE_CACHE)/yaml_parser/receiver.clj \
   $(SOURCE_CACHE)/yaml_parser/grammar.clj \
-  $(YAML_PARSER_DIR)/src/yaml_parser/core.clj
+  $(SOURCE_CACHE)/yaml_parser/core.clj
 
 GLOAT_SOURCES := \
   $(PARSER_SOURCES) \
   src/yamlstar_plugin/json_comments.clj
 
 MAKES-CLEAN := \
+  $(YAML-PARSER-JAR) \
+  $(YAML-PARSER-SRC-DIR) \
   $(SOURCE_CACHE) \
   $(GENERATED_WORK) \
   $(GENERATED_DIR) \
@@ -93,13 +95,17 @@ build: $(LIB)
 
 generate: $(GENERATED_DIR)/.generated
 
-test: $(LIB) $(BB) $(SHELLCHECK)
-	$(BB) -cp src:$(YAML_PARSER_DIR)/src:test \
+test: $(LIB) $(PARSER_SOURCES) $(BB) $(SHELLCHECK)
+	$(BB) -cp src:$(SOURCE_CACHE):test \
 	  -m yamlstar-plugin.json-comments-test
 	$(GO) test ./...
 	$(call compile-abi-test,.cache/abi-test)
 	YAMLSTAR_LIBRARY_PATH=$(abspath lib) .cache/abi-test
 	$(SHELLCHECK) util/release util/test-archive
+
+benchmark: $(LIB)
+	YAMLSTAR_PERFORMANCE_TEST=1 $(GO) test \
+	  -run '^TestPerformance$$' -count=1 -timeout=45s -v
 
 test-release: $(RELEASE_LIB)
 	$(call compile-abi-test,.cache/release-abi-test)
@@ -111,12 +117,9 @@ test-archive: $(PERL)
 	PERL=$(PERL-LOCAL)/bin/perl CC="$(CC)" util/test-archive \
 	  "$(ARCHIVE)" "$(RELEASE_PLATFORM)" "$(VERSION)"
 
-release-check:
+release-check: $(YAML-PARSER-SRC-STAMP)
 	[[ "$(VERSION)" =~ ^[0-9]+\.[0-9]+\.[0-9]+$$ ]]
-	test -n "$(YAML_PARSER_DIR)"
-	test -f "$(YAML_PARSER_DIR)/src/yaml_parser/core.clj"
-	test "$$(git -C $(YAML_PARSER_DIR) rev-parse HEAD)" = \
-	  "$(YAML-PARSER-COMMIT)"
+	test -f "$(YAML-PARSER-SRC-DIR)/yaml_parser/core.clj"
 	grep -Fq ':version "$(VERSION)"' plugin.edn
 	test "$$(git -C $M rev-parse HEAD)" = "$(MAKES-COMMIT)"
 	case "$(RELEASE_PLATFORM)" in \
@@ -140,7 +143,6 @@ release-linux: | $(DOCKER)
 	  -e BUILD_UID="$$(id -u)" \
 	  -e BUILD_GID="$$(id -g)" \
 	  -v "$(CURDIR):/work" \
-	  -v "$(abspath $(YAML_PARSER_DIR)):$(CONTAINER-PARSER-DIR):ro" \
 	  -w /work \
 	  "$(MANYLINUX-IMAGE)" \
 	  bash -c ' \
@@ -152,16 +154,13 @@ release-linux: | $(DOCKER)
 	      done; \
 	    }; \
 	    trap cleanup EXIT; \
-	    dnf install -y binutils file git make perl xz >/dev/null; \
+	    dnf install -y binutils curl file git make perl unzip xz >/dev/null; \
 	    git config --global --add safe.directory /work; \
 	    git config --global --add safe.directory /work/.cache/makes; \
-	    git config --global --add safe.directory \
-	      $(CONTAINER-PARSER-DIR); \
 	    make release-archive \
 	      VERSION="$$VERSION" \
 	      RELEASE_PLATFORM="$$RELEASE_PLATFORM" \
-	      USE_GENERATED_SOURCES="$$USE_GENERATED_SOURCES" \
-	      YAML_PARSER_DIR=$(CONTAINER-PARSER-DIR); \
+	      USE_GENERATED_SOURCES="$$USE_GENERATED_SOURCES"; \
 	  '
 
 release-archive: $(ARCHIVE)
@@ -251,11 +250,28 @@ $(ARCHIVE): Makefile release-check test-release plugin.edn \
 	$(MAKE) test-archive ARCHIVE="$@" \
 	  RELEASE_PLATFORM="$(RELEASE_PLATFORM)" VERSION="$(VERSION)"
 
-$(SOURCE_CACHE)/yaml_parser/%.clj: \
-  $(YAML_PARSER_DIR)/src/yaml_parser/%.cljc
+$(YAML-PARSER-JAR):
+	@mkdir -p $(dir $@)
+	curl --fail --location --silent --show-error \
+	  '$(YAML-PARSER-URL)' -o '$@.tmp'
+	mv '$@.tmp' '$@'
+
+$(YAML-PARSER-SRC-STAMP): $(YAML-PARSER-JAR)
+	rm -rf $(YAML-PARSER-SRC-DIR)
+	mkdir -p $(YAML-PARSER-SRC-DIR)
+	unzip -oq $< 'yaml_parser/*.clj' 'yaml_parser/*.cljc' \
+	  -d $(YAML-PARSER-SRC-DIR)
+	touch $@
+
+$(SOURCE_CACHE)/yaml_parser/%.clj: $(YAML-PARSER-SRC-STAMP)
 	@mkdir -p $(dir $@)
 	$(RM) "$@"
-	cp "$<" "$@"
+	cp "$(YAML-PARSER-SRC-DIR)/yaml_parser/$*.cljc" "$@"
+
+$(SOURCE_CACHE)/yaml_parser/core.clj: $(YAML-PARSER-SRC-STAMP)
+	@mkdir -p $(dir $@)
+	$(RM) "$@"
+	cp "$(YAML-PARSER-SRC-DIR)/yaml_parser/core.clj" "$@"
 
 ifeq ($(USE_GENERATED_SOURCES),1)
 $(GENERATED_DIR)/.generated:

@@ -1,5 +1,6 @@
 (ns yamlstar-plugin.json-comments-test
-  (:require [clojure.test :refer [deftest is run-tests testing]]
+  (:require [clojure.string :as str]
+            [clojure.test :refer [deftest is run-tests testing]]
             [yaml-parser.core :as parser]
             [yamlstar-plugin.json-comments :as comments]))
 
@@ -59,6 +60,32 @@
 (deftest unchanged-input-events-test
   (let [input "a: 1\nb: [true, false]\nc: http://example.com\n"]
     (is (= (parser/parse input) (events input)))))
+
+(deftest sanitizer-fast-path-test
+  (testing "input without comment markers is returned without copying"
+    (let [input (str "values: [" (str/join "," (repeat 10000 "0")) "]\n")]
+      (is (identical? input (comments/sanitize-comments input)))))
+  (testing "plain scalars containing many URLs remain unchanged"
+    (let [input (str "url: "
+                     (str/join "/" (repeat 1000 "http://example.com"))
+                     "\n")]
+      (is (identical? input (comments/sanitize-comments input))))))
+
+(deftest sanitizer-offset-test
+  (let [input (str "a: true// 注\r\n"
+                   "b: false/* λ\nμ */\n")
+        sanitized (comments/sanitize-comments input)]
+    (is (= (count input) (count sanitized)))
+    (is (= (str "a: true    \r\n"
+                "b: false    \n    \n")
+           sanitized))))
+
+(deftest sanitizer-large-comment-test
+  (let [prefix (apply str (repeat 50000 "a"))
+        input (str "value: " prefix " // remove\n")
+        sanitized (comments/sanitize-comments input)]
+    (is (= (count input) (count sanitized)))
+    (is (= (str "value: " prefix "          \n") sanitized))))
 
 (deftest errors-test
   (is (thrown-with-msg? Exception #"Unterminated block comment"

@@ -16,29 +16,35 @@
    (str "^( *)(?:(?:.*: )|(?:- )|(?:\\? ))?[|>]"
         "(?:[1-9]?[+-]?|[+-]?[1-9]?)$")))
 
+(defn- text-between
+  [characters start end]
+  (str/join (subvec characters start end)))
+
 (defn- line-records
-  [input]
-  (let [length (count input)]
+  [characters]
+  (let [length (count characters)]
     (loop [start 0 records []]
       (if (>= start length)
         records
         (let [end (loop [position start]
                     (if (and (< position length)
                              (not (#{\newline \return}
-                                   (nth input position))))
+                                   (nth characters position))))
                       (recur (inc position))
                       position))
               next-start (cond
                            (>= end length) end
-                           (and (= \return (nth input end))
+                           (and (= \return (nth characters end))
                                 (< (inc end) length)
-                                (= \newline (nth input (inc end))))
+                                (= \newline
+                                   (nth characters (inc end))))
                            (+ end 2)
                            :else (inc end))]
           (recur next-start
                  (conj records {:start start
                                 :end next-start
-                                :text (subs input start end)})))))))
+                                :text (text-between
+                                       characters start end)})))))))
 
 (defn- indentation
   [text]
@@ -55,8 +61,8 @@
                             (parse-long digit)))})))
 
 (defn- block-scalar-ranges
-  [input]
-  (loop [records (line-records input) block nil ranges []]
+  [characters]
+  (loop [records (line-records characters) block nil ranges []]
     (if-let [{:keys [start end text]} (first records)]
       (let [indent (indentation text)
             blank? (boolean (re-matches #"[ \t]*" text))
@@ -84,30 +90,10 @@
   [character]
   (contains? #{\[ \] \{ \} \,} character))
 
-(defn- value-start
-  [input slash-position]
-  (loop [position (dec slash-position)]
-    (if (neg? position)
-      0
-      (let [character (nth input position)]
-        (cond
-          (#{\newline \return \[ \{ \,} character) (inc position)
-          (and (= character \:)
-               (< (inc position) slash-position)
-               (whitespace? (nth input (inc position))))
-          (inc position)
-          (and (= character \:)
-               (pos? position)
-               (contains? #{\' \" \] \}}
-                          (nth input (dec position))))
-          (inc position)
-          :else (recur (dec position)))))))
-
 (defn- json-token-before?
-  [input slash-position]
+  [characters value-start slash-position]
   (let [value (str/trim
-               (subs input (value-start input slash-position)
-                     slash-position))
+               (text-between characters value-start slash-position))
         value (if (re-find #"^(?:-|\?)\s+" value)
                 (str/replace-first value #"^(?:-|\?)\s+" "")
                 value)
@@ -117,48 +103,48 @@
     (boolean (re-matches json-token-pattern value))))
 
 (defn- document-marker-before?
-  [input slash-position]
+  [characters value-start slash-position]
   (let [value (str/trim
-               (subs input (value-start input slash-position)
-                     slash-position))]
+               (text-between characters value-start slash-position))]
     (contains? #{"---" "..."} value)))
 
 (defn- block-header-before?
-  [input slash-position]
-  (let [line-start (loop [position (dec slash-position)]
-                     (if (or (neg? position)
-                             (#{\newline \return}
-                              (nth input position)))
-                       (inc position)
-                       (recur (dec position))))
-        prefix (subs input line-start slash-position)]
+  [characters line-start slash-position]
+  (let [prefix (text-between characters line-start slash-position)]
     (boolean (re-matches block-header-prefix-pattern prefix))))
 
 (defn- json-colon-before?
-  [input position]
+  [characters position]
   (and (pos? position)
-       (= \: (nth input (dec position)))
+       (= \: (nth characters (dec position)))
        (> position 1)
        (contains? #{\' \" \] \}}
-                  (nth input (- position 2)))))
+                  (nth characters (- position 2)))))
 
 (defn- comment-boundary?
-  [input position quoted-end? after-comment?]
-  (or (zero? position)
-      quoted-end?
-      after-comment?
-      (json-colon-before? input position)
-      (let [previous (nth input (dec position))]
-        (or (whitespace? previous)
-            (structural-boundary? previous)))
-      (json-token-before? input position)
-      (document-marker-before? input position)
-      (block-header-before? input position)))
+  [characters position quoted-end? after-comment?
+   line-start value-start prefix-eligible?]
+  (let [simple-boundary?
+        (or (zero? position)
+            quoted-end?
+            after-comment?
+            (json-colon-before? characters position)
+            (let [previous (nth characters (dec position))]
+              (or (whitespace? previous)
+                  (structural-boundary? previous))))]
+    (cond
+      simple-boundary? [true prefix-eligible?]
+      (not prefix-eligible?) [false false]
+      :else
+      [(or (json-token-before? characters value-start position)
+           (document-marker-before? characters value-start position)
+           (block-header-before? characters line-start position))
+       false])))
 
 (defn- quote-start?
-  [input position]
+  [characters position]
   (or (zero? position)
-      (let [previous (nth input (dec position))]
+      (let [previous (nth characters (dec position))]
         (or (whitespace? previous)
             (contains? #{\[ \{ \, \: \?} previous)))))
 
@@ -167,89 +153,181 @@
   (str/replace comment #"[^\r\n]" " "))
 
 (defn- line-comment-end
-  [input position]
-  (let [length (count input)]
-    (loop [position position]
-      (if (or (>= position length)
-              (#{\newline \return} (nth input position)))
-        position
-        (recur (inc position))))))
+  [characters length position]
+  (loop [position position]
+    (if (or (>= position length)
+            (#{\newline \return} (nth characters position)))
+      position
+      (recur (inc position)))))
+
+(defn- block-comment-end
+  [characters length position]
+  (loop [position position]
+    (cond
+      (>= (inc position) length) nil
+      (and (= \* (nth characters position))
+           (= \/ (nth characters (inc position))))
+      (+ position 2)
+      :else (recur (inc position)))))
+
+(defn- context-after-character
+  [characters length position line-start value-start prefix-eligible?]
+  (let [character (nth characters position)
+        next-character (when (< (inc position) length)
+                         (nth characters (inc position)))
+        previous-character (when (pos? position)
+                             (nth characters (dec position)))]
+    (cond
+      (#{\newline \return} character)
+      [(inc position) (inc position) true]
+
+      (#{\[ \{ \,} character)
+      [line-start (inc position) true]
+
+      (and (= character \:)
+           (or (and next-character (whitespace? next-character))
+               (contains? #{\' \" \] \}} previous-character)))
+      [line-start (inc position) true]
+
+      :else [line-start value-start prefix-eligible?])))
+
+(defn- advance-context
+  [characters length start end line-start value-start prefix-eligible?]
+  (loop [position start
+         line-start line-start
+         value-start value-start
+         prefix-eligible? prefix-eligible?]
+    (if (>= position end)
+      [line-start value-start prefix-eligible?]
+      (let [[line-start value-start prefix-eligible?]
+            (context-after-character
+             characters length position line-start value-start
+             prefix-eligible?)]
+        (recur (inc position) line-start value-start
+               prefix-eligible?)))))
 
 (defn sanitize-comments
   "Replace JSON-style comments with spaces while preserving offsets."
   [input]
-  (let [ranges (block-scalar-ranges input)
-        length (count input)]
-    (loop [position 0
-           ranges ranges
-           output []
-           quote nil
-           escaped? false
-           quoted-end? false
-           after-comment? false]
-      (if (>= position length)
-        (str/join output)
-        (if-let [[start end] (first ranges)]
-          (cond
-            (= position start)
-            (recur end (next ranges) (conj output (subs input start end))
-                   nil false false false)
+  (if (and (nil? (str/index-of input "//"))
+           (nil? (str/index-of input "/*")))
+    input
+    (let [characters (vec input)
+          ranges (block-scalar-ranges characters)
+          length (count characters)]
+      (loop [position 0
+             ranges ranges
+             output []
+             copy-start 0
+             quote nil
+             escaped? false
+             quoted-end? false
+             after-comment? false
+             line-start 0
+             value-start 0
+             prefix-eligible? true]
+        (if (>= position length)
+          (if (empty? output)
+            input
+            (str/join
+             (conj output
+                   (text-between characters copy-start length))))
+          (if-let [[start end] (first ranges)]
+            (cond
+              (= position start)
+              (let [[line-start value-start prefix-eligible?]
+                    (advance-context
+                     characters length position end line-start value-start
+                     prefix-eligible?)]
+                (recur end (next ranges) output copy-start nil false
+                       false false line-start value-start
+                       prefix-eligible?))
 
-            (> position start)
-            (recur position (next ranges) output quote escaped?
-                   quoted-end? after-comment?)
+              (> position start)
+              (recur position (next ranges) output copy-start quote
+                     escaped? quoted-end? after-comment? line-start
+                     value-start prefix-eligible?)
 
-            :else
-            (let [character (nth input position)
-                  next-character (when (< (inc position) length)
-                                   (nth input (inc position)))]
-              (cond
-                quote
-                (if (and (= quote :single)
-                         (= character \')
-                         (= next-character \'))
-                  (recur (+ position 2) ranges
-                         (conj output "''") quote false false false)
-                  (let [single-end? (and (= quote :single)
+              :else
+              (let [character (nth characters position)
+                    next-character (when (< (inc position) length)
+                                     (nth characters (inc position)))
+                    [boundary? checked-prefix?]
+                    (if (and (= character \/)
+                             (#{\/ \*} next-character))
+                      (comment-boundary?
+                       characters position quoted-end? after-comment?
+                       line-start value-start prefix-eligible?)
+                      [false prefix-eligible?])]
+                (cond
+                  quote
+                  (let [step (if (and (= quote :single)
+                                      (= character \')
+                                      (= next-character \'))
+                               2 1)
+                        single-end? (and (= step 1)
+                                         (= quote :single)
                                          (= character \'))
                         double-end? (and (= quote :double)
                                          (= character \" )
-                                         (not escaped?))]
-                    (recur (inc position) ranges (conj output character)
+                                         (not escaped?))
+                        end (+ position step)
+                        [line-start value-start prefix-eligible?]
+                        (advance-context
+                         characters length position end line-start
+                         value-start checked-prefix?)]
+                    (recur end ranges output copy-start
                            (if (or single-end? double-end?) nil quote)
                            (and (= quote :double)
                                 (= character \\)
                                 (not escaped?))
-                           (or single-end? double-end?) false)))
+                           (or single-end? double-end?) false line-start
+                           value-start prefix-eligible?))
 
-                (and (#{\' \"} character)
-                     (quote-start? input position))
-                (recur (inc position) ranges (conj output character)
-                       (if (= character \') :single :double)
-                       false false false)
+                  (and (#{\' \"} character)
+                       (quote-start? characters position))
+                  (let [[line-start value-start prefix-eligible?]
+                        (context-after-character
+                         characters length position line-start value-start
+                         checked-prefix?)]
+                    (recur (inc position) ranges output copy-start
+                           (if (= character \') :single :double)
+                           false false false line-start value-start
+                           prefix-eligible?))
 
-                (and (= character \/)
-                     (#{\/ \*} next-character)
-                     (comment-boundary? input position quoted-end?
-                                        after-comment?))
-                (let [end (if (= next-character \/)
-                            (line-comment-end input (+ position 2))
-                            (if-let [close (str/index-of input "*/"
-                                                         (+ position 2))]
-                              (+ close 2)
-                              (throw
-                               (ex-info "Unterminated block comment"
-                                        {:position position}))))]
-                  (recur end ranges
-                         (conj output
-                               (mask-comment (subs input position end)))
-                         nil false false true))
+                  boundary?
+                  (let [end (if (= next-character \/)
+                              (line-comment-end
+                               characters length (+ position 2))
+                              (or (block-comment-end
+                                   characters length (+ position 2))
+                                  (throw
+                                   (ex-info "Unterminated block comment"
+                                            {:position position}))))
+                        [line-start value-start prefix-eligible?]
+                        (advance-context
+                         characters length position end line-start
+                         value-start checked-prefix?)]
+                    (recur end ranges
+                           (conj output
+                                 (text-between
+                                  characters copy-start position)
+                                 (mask-comment
+                                  (text-between characters position end)))
+                           end nil false false true line-start value-start
+                           prefix-eligible?))
 
-                :else
-                (recur (inc position) ranges (conj output character)
-                       nil false false false))))
-          (recur position [[length length]] output quote escaped?
-                 quoted-end? after-comment?))))))
+                  :else
+                  (let [[line-start value-start prefix-eligible?]
+                        (context-after-character
+                         characters length position line-start value-start
+                         checked-prefix?)]
+                    (recur (inc position) ranges output copy-start nil
+                           false false false line-start value-start
+                           prefix-eligible?)))))
+            (recur position [[length length]] output copy-start quote
+                   escaped? quoted-end? after-comment? line-start
+                   value-start prefix-eligible?)))))))
 
 (defn parse-edn
   "Parse input and return a YAMLStar event vector encoded as EDN."

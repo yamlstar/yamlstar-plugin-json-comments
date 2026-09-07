@@ -20,15 +20,11 @@ jobs:
     - name: Check out plugin
       uses: actions/checkout@v5
 
-    - name: Check out reference parser
-      uses: actions/checkout@v5
-      with:
-        repository: yaml/yaml-reference-parser-clj
-        ref: a867cac0568aeb453f9bfae0b2339da983019d07
-        path: repos/yaml-reference-parser-clj
-
     - name: Generate Go sources
-      run: make generate YAML_PARSER_DIR=repos/yaml-reference-parser-clj
+      run: make generate
+
+    - name: Check performance
+      run: make benchmark
 
     - name: Upload generated sources
       uses: actions/upload-artifact@v6
@@ -53,13 +49,6 @@ jobs:
     - name: Check out plugin
       uses: actions/checkout@v5
 
-    - name: Check out reference parser
-      uses: actions/checkout@v5
-      with:
-        repository: yaml/yaml-reference-parser-clj
-        ref: a867cac0568aeb453f9bfae0b2339da983019d07
-        path: repos/yaml-reference-parser-clj
-
     - name: Download generated sources
       uses: actions/download-artifact@v7
       with:
@@ -67,10 +56,7 @@ jobs:
         path: internal/glojure
 
     - name: Test plugin
-      run: |
-        make test \
-          YAML_PARSER_DIR=repos/yaml-reference-parser-clj \
-          USE_GENERATED_SOURCES=1
+      run: make test USE_GENERATED_SOURCES=1
 
   test-macos:
     name: Test ${{ matrix.platform }}
@@ -88,13 +74,6 @@ jobs:
     - name: Check out plugin
       uses: actions/checkout@v5
 
-    - name: Check out reference parser
-      uses: actions/checkout@v5
-      with:
-        repository: yaml/yaml-reference-parser-clj
-        ref: a867cac0568aeb453f9bfae0b2339da983019d07
-        path: repos/yaml-reference-parser-clj
-
     - name: Download generated sources
       uses: actions/download-artifact@v7
       with:
@@ -102,7 +81,4 @@ jobs:
         path: internal/glojure
 
     - name: Test plugin
-      run: |
-        make test \
-          YAML_PARSER_DIR=repos/yaml-reference-parser-clj \
-          USE_GENERATED_SOURCES=1
+      run: make test USE_GENERATED_SOURCES=1

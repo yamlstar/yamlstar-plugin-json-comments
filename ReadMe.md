@@ -7,13 +7,21 @@ returns YAMLStar parser events as EDN.
 Version 0.1 supports Unix shared libraries.
 It deliberately has no installation or download side effects.
 
-Build it against a reference-parser checkout at
-`repos/yaml-reference-parser-clj`, or against an adjacent checkout when this
-repository is used from a YAMLStar worktree:
+The build downloads the same released reference-parser artifact used by
+YAMLStar:
 
 ```sh
 make build
 ```
+
+Run the performance regression gate with:
+
+```sh
+make benchmark
+```
+
+This compares the plugin with the reference parser on a generated 240 KiB
+document and checks sanitizer scaling from 256 KiB to 1 MiB.
 
 Select the resulting library by adding its directory to the search path:
 

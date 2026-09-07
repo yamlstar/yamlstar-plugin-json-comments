@@ -21,7 +21,6 @@ concurrency:
 
 env:
   VERSION: ${{ inputs.version }}
-  YAML_PARSER_COMMIT: a867cac0568aeb453f9bfae0b2339da983019d07
 
 jobs:
   verify-release:
@@ -77,15 +76,11 @@ jobs:
       with:
         ref: ${{ inputs.version }}
 
-    - name: Check out reference parser
-      uses: actions/checkout@v5
-      with:
-        repository: yaml/yaml-reference-parser-clj
-        ref: ${{ env.YAML_PARSER_COMMIT }}
-        path: repos/yaml-reference-parser-clj
-
     - name: Generate Go sources
-      run: make generate YAML_PARSER_DIR=repos/yaml-reference-parser-clj
+      run: make generate
+
+    - name: Check performance
+      run: make benchmark
 
     - name: Upload generated sources
       uses: actions/upload-artifact@v6
@@ -112,13 +107,6 @@ jobs:
       with:
         ref: ${{ inputs.version }}
 
-    - name: Check out reference parser
-      uses: actions/checkout@v5
-      with:
-        repository: yaml/yaml-reference-parser-clj
-        ref: ${{ env.YAML_PARSER_COMMIT }}
-        path: repos/yaml-reference-parser-clj
-
     - name: Download generated sources
       uses: actions/download-artifact@v7
       with:
@@ -130,7 +118,6 @@ jobs:
         make dist \
           VERSION="$VERSION" \
           RELEASE_PLATFORM="${{ matrix.platform }}" \
-          YAML_PARSER_DIR=repos/yaml-reference-parser-clj \
           USE_GENERATED_SOURCES=1
 
     - name: Upload build artifact
@@ -158,13 +145,6 @@ jobs:
       with:
         ref: ${{ inputs.version }}
 
-    - name: Check out reference parser
-      uses: actions/checkout@v5
-      with:
-        repository: yaml/yaml-reference-parser-clj
-        ref: ${{ env.YAML_PARSER_COMMIT }}
-        path: repos/yaml-reference-parser-clj
-
     - name: Download generated sources
       uses: actions/download-artifact@v7
       with:
@@ -181,7 +161,6 @@ jobs:
         make dist \
           VERSION="$VERSION" \
           RELEASE_PLATFORM="${{ matrix.platform }}" \
-          YAML_PARSER_DIR=repos/yaml-reference-parser-clj \
           USE_GENERATED_SOURCES=1 \
           TAR=gtar
 

@@ -2,7 +2,7 @@ module github.com/yamlstar/yamlstar-plugin-json-comments
 
 go 1.24
 
-require github.com/glojurelang/glojure v0.7.14
+require github.com/glojurelang/glojure v0.7.15
 
 require (
 	bitbucket.org/pcastools/hash v1.0.5 // indirect
