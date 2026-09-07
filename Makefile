@@ -20,7 +20,7 @@ include $M/clean.mk
 include $M/shellcheck.mk
 include $M/shell.mk
 
-VERSION := 0.1.0
+VERSION := 0.1.1
 MODULE := github.com/yamlstar/yamlstar-plugin-json-comments
 YAML-PARSER-VERSION := 0.2.4
 YAML-PARSER-FILE := yaml-parser-$(YAML-PARSER-VERSION).jar
