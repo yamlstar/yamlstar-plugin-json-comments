@@ -19,6 +19,10 @@ include $M/perl.mk
 include $M/docker.mk
 include $M/clean.mk
 include $M/shellcheck.mk
+
+# Correct uv platform names until Makes provides these mappings.
+override OA-linux-arm64 := linux-aarch64-gnu
+override OA-macos-int64 := macos-x86_64-none
 include $M/python.mk
 include $M/shell.mk
 
