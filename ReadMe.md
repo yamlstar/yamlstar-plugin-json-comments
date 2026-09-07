@@ -61,15 +61,34 @@ install -m 755 \
 
 Use the `.dylib` filename on macOS.
 
+## Python Wheels
+
+Install the plugin for the YAMLStar Python binding with:
+
+```sh
+pip install yamlstar-plugin-json-comments
+```
+
+The package registers the plugin through the `yamlstar.plugins` entry-point
+group.
+YAMLStar bindings that support this entry point find the installed shared
+library automatically when `json-comments` is selected.
+The package also exposes `library_path()` and `library_dir()` from the
+`yamlstar_plugin_json_comments` module.
+
+Only platform wheels are published because installing from an sdist would
+require compiling the native plugin locally.
+
 Maintainers build and validate a release archive with:
 
 ```sh
-make dist VERSION=0.1.0
+make wheel VERSION=0.1.1
 ```
 
 On Linux this runs the final shared-library build and archive checks in the
 pinned manylinux container, so Docker must be available.
 On macOS it builds natively and uses GNU tar as `gtar`.
+The wheel wraps the library from that validated archive.
 
 List the complete release process with:
 
@@ -86,21 +105,30 @@ make release v=0.1.0
 For subsequent releases, provide the old and new versions:
 
 ```sh
-make release o=0.1.0 v=0.1.1
+make release o=0.1.1 v=0.1.2
 ```
 
 The interactive command checks the version and working tree, updates the
 version files when needed, commits and tags the release, publishes the branch
 and tag, then dispatches and watches the GitHub release workflow.
+The workflow publishes the native archives and wheels to GitHub, then
+publishes the wheels to PyPI.
+PyPI trusted publishing must authorize the `release.yaml` workflow in the
+`pypi` GitHub environment for the
+`yamlstar/yamlstar-plugin-json-comments` repository.
 Use `d=1` to preview the release without changing anything.
 Use `a=1` to allow the full release command to run from a branch other than
 `main`.
-After correcting a failed release build, update its branch and tag and start a
-new workflow run with:
+Retry a failed release workflow with:
 
 ```sh
-make release-retry v=0.1.0
+make release-retry v=0.1.2
 ```
+
+Before GitHub assets exist, retry updates the release tag and starts a new
+workflow run.
+After assets exist, it reruns the failed jobs so a failed PyPI publication can
+resume without rebuilding or replacing immutable files.
 
 The GitHub release workflow requires an existing plain version tag such as
 `0.1.0`.

@@ -8,6 +8,7 @@ $(shell test -d $M || { \
 GO-VERSION := 1.27.1
 BABASHKA-VERSION := 1.13.220
 PERL-VERSION := 5.44.0.0
+export UV_CACHE_DIR := $(CURDIR)/.cache/uv
 
 include $M/init.mk
 include $M/gh.mk
@@ -18,7 +19,11 @@ include $M/perl.mk
 include $M/docker.mk
 include $M/clean.mk
 include $M/shellcheck.mk
+include $M/python.mk
 include $M/shell.mk
+
+PYTHON-VENV-SETUP := \
+  $(UV) pip install --python $(PYTHON-VENV) setuptools wheel
 
 VERSION := 0.1.1
 MODULE := github.com/yamlstar/yamlstar-plugin-json-comments
@@ -40,11 +45,28 @@ USE_GENERATED_SOURCES ?=
 SOURCE_CACHE := .cache/src
 RELEASE_LIB_DIR := .cache/release/lib
 RELEASE_LIB := $(RELEASE_LIB_DIR)/$(LIB-NAME)
+WHEEL-PACKAGE := yamlstar_plugin_json_comments
+WHEEL-PACKAGE-DIR := python/lib/$(WHEEL-PACKAGE)
+WHEEL-LIB-DIR := $(WHEEL-PACKAGE-DIR)/lib
+WHEEL-CACHE := .cache/wheel
+WHEEL-SOURCE-LIB = \
+  $(WHEEL-CACHE)/$(RELEASE_NAME)/lib/$(LIB-NAME)
+WHEEL-PLAT-linux-x64 := manylinux_2_28_x86_64
+WHEEL-PLAT-linux-aarch64 := manylinux_2_28_aarch64
+WHEEL-PLAT-macos-x64 := macosx_15_0_x86_64
+WHEEL-PLAT-macos-arm64 := macosx_14_0_arm64
+WHEEL-PLAT := $(WHEEL-PLAT-$(RELEASE_PLATFORM))
+WHEEL-TAG := py3-none-$(WHEEL-PLAT)
+WHEEL-FILE := python/dist/$(WHEEL-PACKAGE)-$(VERSION)-$(WHEEL-TAG).whl
+WHEEL ?= $(WHEEL-FILE)
+WHEEL-TEST-VENV := .cache/wheel-test
+WHEEL-TEST-PYTHON := $(WHEEL-TEST-VENV)/bin/python
 
 RELEASE-ARCH := $(if $(IS-INTEL),x64,\
   $(if $(IS-LINUX),aarch64,arm64))
 RELEASE_PLATFORM ?= $(OS-NAME)-$(RELEASE-ARCH)
 RELEASE_NAME := $(PLUGIN)-$(VERSION)-$(RELEASE_PLATFORM)
+WHEEL-STAGE := $(WHEEL-CACHE)/$(RELEASE_NAME)/.staged
 RELEASE_DIR := dist/$(RELEASE_NAME)
 ARCHIVE := dist/$(RELEASE_NAME).tar.xz
 SOURCE_DATE_EPOCH ?= $(shell git log -1 --format=%ct)
@@ -83,11 +105,20 @@ MAKES-CLEAN := \
   $(YAML-PARSER-JAR) \
   $(YAML-PARSER-SRC-DIR) \
   $(SOURCE_CACHE) \
+  $(WHEEL-CACHE) \
+  $(WHEEL-TEST-VENV) \
   $(GENERATED_WORK) \
   $(GENERATED_DIR) \
   $(RELEASE_LIB_DIR) \
   dist \
-  lib
+  lib \
+  python/build \
+  python/dist \
+  python/*.egg-info \
+  python/lib/*.egg-info \
+  $(WHEEL-LIB-DIR) \
+  $(WHEEL-PACKAGE-DIR)/plugin.edn \
+  $(WHEEL-PACKAGE-DIR)/License
 
 default:: build
 
@@ -106,6 +137,31 @@ test: $(LIB) $(PARSER_SOURCES) $(BB) $(SHELLCHECK)
 benchmark: $(LIB)
 	YAMLSTAR_PERFORMANCE_TEST=1 $(GO) test \
 	  -run '^TestPerformance$$' -count=1 -timeout=45s -v
+
+wheel: dist
+	$(MAKE) -o $(ARCHIVE) $(WHEEL-FILE) VERSION=$(VERSION) \
+	  RELEASE_PLATFORM=$(RELEASE_PLATFORM)
+
+test-wheel: $(WHEEL) $(UV) $(PYTHON)
+	@test -n "$(WHEEL-PLAT)" || { \
+	  echo "No wheel platform for $(RELEASE_PLATFORM)" >&2; \
+	  exit 1; \
+	}
+	rm -rf $(WHEEL-CACHE)
+	mkdir -p $(WHEEL-CACHE)
+	tar -C $(WHEEL-CACHE) -xf $(ARCHIVE)
+	test -f $(WHEEL-SOURCE-LIB)
+	rm -rf $(WHEEL-TEST-VENV)
+	$(UV) venv --python $(PYTHON) $(WHEEL-TEST-VENV)
+	$(UV) pip install --python $(WHEEL-TEST-PYTHON) \
+	  --force-reinstall $(WHEEL)
+	$(call compile-abi-test,.cache/wheel-abi-test)
+	library_dir="$$( \
+	  $(WHEEL-TEST-PYTHON) python/test_wheel.py \
+	    $(WHEEL) $(WHEEL-TAG) $(WHEEL-SOURCE-LIB) \
+	    $(VERSION) \
+	)"; \
+	YAMLSTAR_LIBRARY_PATH="$$library_dir" .cache/wheel-abi-test
 
 test-release: $(RELEASE_LIB)
 	$(call compile-abi-test,.cache/release-abi-test)
@@ -249,6 +305,28 @@ $(ARCHIVE): Makefile release-check test-release plugin.edn \
 	  -C dist -cJf "$@" "$(RELEASE_NAME)"
 	$(MAKE) test-archive ARCHIVE="$@" \
 	  RELEASE_PLATFORM="$(RELEASE_PLATFORM)" VERSION="$(VERSION)"
+
+$(WHEEL-STAGE): $(ARCHIVE) plugin.edn License python/setup.py \
+  python/lib/$(WHEEL-PACKAGE)/__init__.py
+	@test -n "$(WHEEL-PLAT)" || { \
+	  echo "No wheel platform for $(RELEASE_PLATFORM)" >&2; \
+	  exit 1; \
+	}
+	rm -rf $(WHEEL-CACHE) $(WHEEL-LIB-DIR)
+	mkdir -p $(WHEEL-CACHE) $(WHEEL-LIB-DIR)
+	tar -C $(WHEEL-CACHE) -xf $(ARCHIVE)
+	cp -p $(WHEEL-CACHE)/$(RELEASE_NAME)/lib/$(LIB-NAME) \
+	  $(WHEEL-LIB-DIR)/
+	cp -p plugin.edn $(WHEEL-PACKAGE-DIR)/
+	cp -p License $(WHEEL-PACKAGE-DIR)/
+	touch $@
+
+$(WHEEL-FILE): $(WHEEL-STAGE) $(PYTHON-VENV)
+	rm -rf python/build python/dist python/*.egg-info \
+	  python/lib/*.egg-info
+	cd python && $(VENV) && \
+	  python setup.py bdist_wheel --plat-name $(WHEEL-PLAT)
+	test -f $@
 
 $(YAML-PARSER-JAR):
 	@mkdir -p $(dir $@)

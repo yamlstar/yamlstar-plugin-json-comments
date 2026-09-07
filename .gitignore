@@ -3,4 +3,12 @@
 /dist/
 /internal/glojure/
 /lib/
+/python/build/
+/python/dist/
+/python/*.egg-info/
+/python/lib/*.egg-info/
+/python/lib/yamlstar_plugin_json_comments/lib/
+/python/lib/yamlstar_plugin_json_comments/plugin.edn
+/python/lib/yamlstar_plugin_json_comments/License
+/python/lib/yamlstar_plugin_json_comments/__pycache__/
 /repos/

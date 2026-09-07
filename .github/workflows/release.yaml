@@ -113,18 +113,23 @@ jobs:
         name: generated-sources
         path: internal/glojure
 
-    - name: Build release archive
+    - name: Build release archive and wheel
       run: |
-        make dist \
+        make wheel \
           VERSION="$VERSION" \
           RELEASE_PLATFORM="${{ matrix.platform }}" \
           USE_GENERATED_SOURCES=1
+
+    - name: Stage release artifacts
+      run: |
+        mkdir release-output
+        cp dist/*.tar.xz python/dist/*.whl release-output/
 
     - name: Upload build artifact
       uses: actions/upload-artifact@v6
       with:
         name: release-${{ matrix.platform }}
-        path: dist/*.tar.xz
+        path: release-output/*
         retention-days: 7
 
   build-macos:
@@ -156,19 +161,24 @@ jobs:
         brew list gnu-tar >/dev/null 2>&1 || brew install gnu-tar
         brew list xz >/dev/null 2>&1 || brew install xz
 
-    - name: Build release archive
+    - name: Build release archive and wheel
       run: |
-        make dist \
+        make wheel \
           VERSION="$VERSION" \
           RELEASE_PLATFORM="${{ matrix.platform }}" \
           USE_GENERATED_SOURCES=1 \
           TAR=gtar
 
+    - name: Stage release artifacts
+      run: |
+        mkdir release-output
+        cp dist/*.tar.xz python/dist/*.whl release-output/
+
     - name: Upload build artifact
       uses: actions/upload-artifact@v6
       with:
         name: release-${{ matrix.platform }}
-        path: dist/*.tar.xz
+        path: release-output/*
         retention-days: 7
 
   test-linux-assets:
@@ -188,7 +198,7 @@ jobs:
           container: quay.io/pypa/manylinux_2_28_aarch64@sha256:ad74e53b713f3b07d8c889c526dc0c6500da9827b45e38739570875fef52e28f
     steps:
     - name: Install system dependencies
-      run: dnf install -y binutils file git make perl xz
+      run: dnf install -y binutils curl file gcc git make perl xz
 
     - name: Check out tag
       uses: actions/checkout@v5
@@ -209,8 +219,14 @@ jobs:
         platform=${{ matrix.platform }}
         name="yamlstar-plugin-json-comments-$VERSION-$platform.tar.xz"
         archive="release-artifact/$name"
+        wheel=$(find release-artifact -maxdepth 1 -name '*.whl')
         make test-archive \
           ARCHIVE="$archive" \
+          RELEASE_PLATFORM="$platform" \
+          VERSION="$VERSION"
+        make test-wheel \
+          ARCHIVE="$archive" \
+          WHEEL="$wheel" \
           RELEASE_PLATFORM="$platform" \
           VERSION="$VERSION"
 
@@ -243,8 +259,14 @@ jobs:
         platform=${{ matrix.platform }}
         name="yamlstar-plugin-json-comments-$VERSION-$platform.tar.xz"
         archive="release-artifact/$name"
+        wheel=$(find release-artifact -maxdepth 1 -name '*.whl')
         make test-archive \
           ARCHIVE="$archive" \
+          RELEASE_PLATFORM="$platform" \
+          VERSION="$VERSION"
+        make test-wheel \
+          ARCHIVE="$archive" \
+          WHEEL="$wheel" \
           RELEASE_PLATFORM="$platform" \
           VERSION="$VERSION"
 
@@ -288,7 +310,7 @@ jobs:
 
     - name: Generate checksums
       working-directory: release-assets
-      run: sha256sum ./*.tar.xz > SHA256SUMS
+      run: sha256sum ./*.tar.xz ./*.whl > SHA256SUMS
 
     - name: Attest release assets
       uses: actions/attest@v4
@@ -303,3 +325,28 @@ jobs:
           --repo "${{ github.repository }}" \
           --clobber
         gh release view "$VERSION" --repo "${{ github.repository }}"
+
+  publish-pypi:
+    name: Publish wheels to PyPI
+    needs: upload-assets
+    runs-on: ubuntu-22.04
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+    - name: Download release wheels
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        mkdir pypi-assets
+        gh release download "$VERSION" \
+          --repo "${{ github.repository }}" \
+          --pattern '*.whl' \
+          --dir pypi-assets
+
+    - name: Publish wheels
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        packages-dir: pypi-assets
+        skip-existing: true

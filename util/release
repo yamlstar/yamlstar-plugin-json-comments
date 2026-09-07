@@ -285,6 +285,30 @@ do_build_github() {
     --interval 10
 }
 
+do_rerun_failed_github() {
+  local commit run_id
+  commit=$(git rev-parse "$new_version^{commit}")
+  run_id=$(
+    "$gh" run list \
+      --workflow "$release_workflow" \
+      --repo "$release_repo" \
+      --commit "$commit" \
+      --event workflow_dispatch \
+      --status failure \
+      --limit 1 \
+      --json databaseId \
+      --jq '.[0].databaseId'
+  )
+  [[ -n $run_id ]] ||
+    die "Could not find a failed release run for $new_version"
+  printf 'Rerunning failed jobs from workflow run %s\n' "$run_id"
+  "$gh" run rerun "$run_id" --repo "$release_repo" --failed
+  "$gh" run watch "$run_id" \
+    --repo "$release_repo" \
+    --exit-status \
+    --interval 10
+}
+
 do_retry() {
   require_new_version
   [[ $(current_version) == "$new_version" ]] ||
@@ -302,20 +326,27 @@ do_retry() {
     die 'Working tree is not clean'
   fi
 
-  if [[ -n $dry_run ]]; then
-    printf 'Would update branch %s and tag %s, then rerun the workflow\n' \
-      "$branch" "$new_version"
-    return
-  fi
-
   asset_count=$(
     "$gh" release view "$new_version" \
       --repo "$release_repo" \
       --json assets \
       --jq '.assets | length' 2>/dev/null || printf '0\n'
   )
-  [[ $asset_count == 0 ]] ||
-    die "Release $new_version already has assets"
+
+  if [[ -n $dry_run ]]; then
+    if [[ $asset_count == 0 ]]; then
+      printf 'Would update branch %s and tag %s, then rerun the workflow\n' \
+        "$branch" "$new_version"
+    else
+      printf 'Would rerun failed jobs for release %s\n' "$new_version"
+    fi
+    return
+  fi
+
+  if [[ $asset_count != 0 ]]; then
+    do_rerun_failed_github
+    return
+  fi
 
   git tag -f "$new_version" HEAD
   git push origin "$branch"
