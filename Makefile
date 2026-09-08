@@ -20,9 +20,13 @@ include $M/docker.mk
 include $M/clean.mk
 include $M/shellcheck.mk
 
-# Correct uv platform names until Makes provides these mappings.
-override OA-linux-arm64 := linux-aarch64-gnu
-override OA-macos-int64 := macos-x86_64-none
+# Correct uv-managed CPython names until Makes provides these mappings.
+CPYTHON-OA-linux-arm64 := linux-aarch64-gnu
+CPYTHON-OA-macos-int64 := macos-x86_64-none
+ifneq ($(CPYTHON-OA-$(OS-ARCH)),)
+override PYTHON-NAME = \
+  cpython-$(PYTHON-VERSION)-$(CPYTHON-OA-$(OS-ARCH))
+endif
 include $M/python.mk
 include $M/shell.mk
 
