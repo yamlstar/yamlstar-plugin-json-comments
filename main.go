@@ -15,6 +15,7 @@ import (
 
 	"github.com/glojurelang/glojure/pkg/glj"
 	"github.com/glojurelang/glojure/pkg/lang"
+	binaryevents "github.com/yamlstar/yaml-events-binary-protocol/glojure"
 	_ "github.com/yamlstar/yamlstar-plugin-json-comments/internal/glojure/pkg/yaml_parser/core"
 	_ "github.com/yamlstar/yamlstar-plugin-json-comments/internal/glojure/pkg/yaml_parser/grammar"
 	_ "github.com/yamlstar/yamlstar-plugin-json-comments/internal/glojure/pkg/yaml_parser/parser"
@@ -71,10 +72,13 @@ func parse(input, options string) (output string, err error) {
 }
 
 func writeOutput(text string, output **C.uint8_t, length *C.size_t) C.int32_t {
+	return writeBytes([]byte(text), output, length)
+}
+
+func writeBytes(data []byte, output **C.uint8_t, length *C.size_t) C.int32_t {
 	if output == nil || length == nil {
 		return 2
 	}
-	data := []byte(text)
 	var pointer unsafe.Pointer
 	if len(data) > 0 {
 		pointer = C.CBytes(data)
@@ -82,6 +86,20 @@ func writeOutput(text string, output **C.uint8_t, length *C.size_t) C.int32_t {
 	*output = (*C.uint8_t)(pointer)
 	*length = C.size_t(len(data))
 	return 0
+}
+
+func parseBinary(input, options string) (output []byte, err error) {
+	if err := initialize(); err != nil {
+		return nil, err
+	}
+	defer func() {
+		if value := recover(); value != nil {
+			output = nil
+			err = fmt.Errorf("%v", value)
+		}
+	}()
+	value := glj.Var("yamlstar-plugin.json-comments", "parse-events").Invoke(input, options)
+	return binaryevents.Encode(value)
 }
 
 func errorEDN(kind string, err error) string {

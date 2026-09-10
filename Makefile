@@ -146,6 +146,20 @@ benchmark: $(LIB)
 	YAMLSTAR_PERFORMANCE_TEST=1 $(GO) test \
 	  -run '^TestPerformance$$' -count=1 -timeout=45s -v
 
+benchmark-binary: $(LIB)
+	$(GO) test -run '^$$' -bench '^BenchmarkTransport$$' \
+	  -benchtime=1x -count=7 -timeout=30m
+
+binary-sizes: $(LIB)
+	YAMLSTAR_BINARY_SIZES=1 $(GO) test \
+	  -run '^TestBinaryWireSizes$$' -v -timeout=10m
+
+# An EDN-only copy from identical sources exercises the legacy ABI path.
+build-edn: $(LIB)
+	mkdir -p .cache/edn-only
+	$(GO) build -tags ednonly -buildmode=c-shared \
+	  -o .cache/edn-only/$(LIB-NAME) .
+
 wheel: dist
 	$(MAKE) -o $(ARCHIVE) $(WHEEL-FILE) VERSION=$(VERSION) \
 	  RELEASE_PLATFORM=$(RELEASE_PLATFORM)
@@ -377,11 +391,13 @@ $(GENERATED_DIR)/.generated: go.mod $(GLOAT_SOURCES) $(GLOAT)
 	touch $@
 endif
 
-$(LIB): $(GENERATED_DIR)/.generated main.go plugin.edn go.mod $(GO)
+$(LIB): $(GENERATED_DIR)/.generated main.go binary.go plugin.edn \
+  go.mod go.sum $(GO)
 	@mkdir -p $(dir $@)
 	$(GO) build -buildmode=c-shared -o $@ .
 
-$(RELEASE_LIB): $(GENERATED_DIR)/.generated main.go plugin.edn go.mod $(GO)
+$(RELEASE_LIB): $(GENERATED_DIR)/.generated main.go binary.go plugin.edn \
+  go.mod go.sum $(GO)
 	@mkdir -p $(dir $@)
 	$(GO) build -trimpath -ldflags='-s -w' \
 	  -buildmode=c-shared -o $@ .

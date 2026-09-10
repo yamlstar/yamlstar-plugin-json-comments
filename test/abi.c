@@ -22,6 +22,7 @@ typedef void (*free_fn)(uint8_t *);
 
 struct api {
     parse_fn parse;
+    parse_fn parse_binary;
     free_fn free_output;
 };
 
@@ -68,6 +69,15 @@ static void *parse_repeatedly(void *argument) {
             fail("concurrent parse failed");
         }
         free(output);
+        uint8_t *binary = NULL;
+        size_t length = 0;
+        status = api->parse_binary((const uint8_t *) "a: b", 4,
+                                   (const uint8_t *) "{}", 2,
+                                   &binary, &length);
+        if (status != 0 || length < 16 || memcmp(binary, "YEBP", 4)) {
+            fail("concurrent binary parse failed");
+        }
+        api->free_output(binary);
     }
     return NULL;
 }
@@ -90,11 +100,14 @@ int main(void) {
     manifest_fn manifest = (manifest_fn) dlsym(
         handle, "yamlstar_plugin_v1_manifest");
     struct api api = {
+        .parse_binary = (parse_fn) dlsym(
+            handle, "yamlstar_plugin_v1_parse_binary"),
         .parse = (parse_fn) dlsym(handle, "yamlstar_plugin_v1_parse"),
         .free_output = (free_fn) dlsym(
             handle, "yamlstar_plugin_v1_free"),
     };
     if (abi == NULL || manifest == NULL || api.parse == NULL
+        || api.parse_binary == NULL
         || api.free_output == NULL) {
         fail("plugin ABI symbol is missing");
     }
@@ -135,6 +148,14 @@ int main(void) {
         fail("parse error result is incorrect");
     }
     free(output);
+
+    uint8_t *bad_output = NULL;
+    size_t bad_length = 0;
+    status = api.parse_binary(NULL, 1, NULL, 0, &bad_output, &bad_length);
+    if (status != 2) {
+        fail("binary ABI accepted a nil input with nonzero length");
+    }
+    api.free_output(bad_output);
 
     pthread_t threads[4];
     for (int index = 0; index < 4; index++) {

@@ -329,8 +329,8 @@
                    escaped? quoted-end? after-comment? line-start
                    value-start prefix-eligible?)))))))
 
-(defn parse-edn
-  "Parse input and return a YAMLStar event vector encoded as EDN."
+(defn parse-events
+  "Parse input and return the event vector before transport encoding."
   [input options-edn]
   (let [options (if (str/blank? options-edn)
                   {}
@@ -338,4 +338,9 @@
     (when-not (map? options)
       (throw (ex-info "Plugin options must be an EDN map"
                       {:options options})))
-    (pr-str (parser/parse (sanitize-comments input)))))
+    (parser/parse (sanitize-comments input))))
+
+(defn parse-edn
+  "Parse input and return a YAMLStar event vector encoded as EDN."
+  [input options-edn]
+  (pr-str (parse-events input options-edn)))
