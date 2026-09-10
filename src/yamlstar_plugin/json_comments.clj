@@ -339,8 +339,3 @@
       (throw (ex-info "Plugin options must be an EDN map"
                       {:options options})))
     (parser/parse (sanitize-comments input))))
-
-(defn parse-edn
-  "Parse input and return a YAMLStar event vector encoded as EDN."
-  [input options-edn]
-  (pr-str (parse-events input options-edn)))

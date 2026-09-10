@@ -154,12 +154,6 @@ binary-sizes: $(LIB)
 	YAMLSTAR_BINARY_SIZES=1 $(GO) test \
 	  -run '^TestBinaryWireSizes$$' -v -timeout=10m
 
-# An EDN-only copy from identical sources exercises the legacy ABI path.
-build-edn: $(LIB)
-	mkdir -p .cache/edn-only
-	$(GO) build -tags ednonly -buildmode=c-shared \
-	  -o .cache/edn-only/$(LIB-NAME) .
-
 wheel: dist
 	$(MAKE) -o $(ARCHIVE) $(WHEEL-FILE) VERSION=$(VERSION) \
 	  RELEASE_PLATFORM=$(RELEASE_PLATFORM)

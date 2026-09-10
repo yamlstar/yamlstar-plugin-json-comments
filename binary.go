@@ -1,5 +1,3 @@
-//go:build !ednonly
-
 package main
 
 /*

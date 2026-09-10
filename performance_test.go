@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"runtime"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/glojurelang/glojure/pkg/glj"
+	binaryevents "github.com/yamlstar/yaml-events-binary-protocol/glojure"
 )
 
 const performanceTestEnv = "YAMLSTAR_PERFORMANCE_TEST"
@@ -48,26 +50,28 @@ func TestPerformance(t *testing.T) {
 	}
 
 	parseReference := glj.Var("yaml-parser.core", "parse")
-	printValue := glj.Var("clojure.core", "pr-str")
 	sanitize := glj.Var(
 		"yamlstar-plugin.json-comments", "sanitize-comments")
 	input := makeJSONFixture(240 * 1024)
 
 	// Initialize parser paths before measuring either one.
-	printValue.Invoke(parseReference.Invoke("{}\n"))
-	if _, err := parse("{}\n", "{}"); err != nil {
+	parseReference.Invoke("{}\n")
+	if _, err := parseBinary("{}\n", "{}"); err != nil {
 		t.Fatal(err)
 	}
 
-	var referenceOutput string
+	var referenceOutput []byte
 	referenceTime := elapsed(func() {
-		referenceOutput = printValue.Invoke(
-			parseReference.Invoke(input)).(string)
+		var err error
+		referenceOutput, err = binaryevents.Encode(parseReference.Invoke(input))
+		if err != nil {
+			t.Fatal(err)
+		}
 	})
-	var pluginOutput string
+	var pluginOutput []byte
 	pluginTime := elapsed(func() {
 		var err error
-		pluginOutput, err = parse(input, "{}")
+		pluginOutput, err = parseBinary(input, "{}")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -78,7 +82,7 @@ func TestPerformance(t *testing.T) {
 		t.Fatalf("reference parser exceeded 15 seconds: %s",
 			referenceTime)
 	}
-	if pluginOutput != referenceOutput {
+	if !bytes.Equal(pluginOutput, referenceOutput) {
 		t.Fatal("marker-free plugin output differs from reference output")
 	}
 	if pluginTime > 2*referenceTime {

@@ -1,25 +1,20 @@
 # YAMLStar JSON Comments Plugin
 
-This repository builds the JSON comments event-source plugin for YAMLStar.
+This repository builds the JSON comments parser plugin for YAMLStar.
 The plugin accepts UTF-8 input through the YAMLStar shared-plugin ABI and
-returns YAMLStar parser events through binary or EDN transport.
+returns YAMLStar parser events through binary transport.
 
-The optional binary event ABI uses
+The required binary event ABI uses
 `github.com/yamlstar/yaml-events-binary-protocol` v0.1.0, compiled into the
 plugin as a normal Go dependency.
 No separate protocol checkout or runtime library is needed.
-YAMLStar's Glojure host prefers binary when the plugin provides it.
-The existing EDN entry point and manifest remain compatible with old hosts.
+Parser events use YEBP v1; manifests, options, and error envelopes use EDN.
+The plugin does not export the old EDN event entry point.
+It requires a YAMLStar Glojure host with binary shared parser support.
 
-Run `make benchmark-binary` to measure encoding and decoding separately.
-Run `make build-edn` to build an EDN-only copy from the same sources for
-YAMLStar's complete-load comparison.
-The native ABI test covers both entry points and concurrent use.
-
+Run `make benchmark-binary` to measure binary encoding and decoding.
+The native ABI test covers parsing, errors, and concurrent use.
 Binary transport preserves Unicode scalar values directly.
-The pinned Glojure 0.7.15 EDN printer corrupts some non-ASCII characters;
-the binary tests compare those cases with the original parser events.
-Timing comparisons use scalar values that both paths preserve identically.
 
 Version 0.1 supports Unix shared libraries.
 It deliberately has no installation or download side effects.
@@ -43,7 +38,7 @@ document and checks sanitizer scaling from 256 KiB to 1 MiB.
 Select the resulting library by adding its directory to the search path:
 
 ```sh
-YAMLSTAR_LIBRARY_PATH=$PWD/lib yaml --plugin=json-comments
+YAMLSTAR_LIBRARY_PATH=$PWD/lib yaml --parser=json-comments
 ```
 
 The plugin recognizes `//` line comments and `/* ... */` block comments.

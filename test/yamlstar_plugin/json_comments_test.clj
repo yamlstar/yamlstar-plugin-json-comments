@@ -6,7 +6,7 @@
 
 (defn events
   [input]
-  (read-string (comments/parse-edn input "{}")))
+  (comments/parse-events input "{}"))
 
 (defn scalar-values
   [input]
@@ -91,7 +91,7 @@
   (is (thrown-with-msg? Exception #"Unterminated block comment"
                         (events "value: true/* comment\n")))
   (is (thrown-with-msg? Exception #"options must be an EDN map"
-                        (comments/parse-edn "x" "[]"))))
+                        (comments/parse-events "x" "[]"))))
 
 (defn -main
   [& _]

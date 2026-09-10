@@ -19,10 +19,6 @@ func TestBinaryEquivalence(t *testing.T) {
 		"literal: |\n  // content\nfolded: >\n  folded\n  lines\n",
 		"? [a, b]\n: {x: y}\n",
 	} {
-		edn, err := parse(input, "{}")
-		if err != nil {
-			t.Fatalf("EDN %q: %v", input, err)
-		}
 		packet, err := parseBinary(input, "{}")
 		if err != nil {
 			t.Fatalf("binary %q: %v", input, err)
@@ -31,17 +27,14 @@ func TestBinaryEquivalence(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		want := glj.Var("clojure.core", "read-string").Invoke(edn)
 		original := glj.Var("yamlstar-plugin.json-comments", "parse-events").Invoke(input, "{}")
-		if !lang.Equals(original, decoded) || !lang.Equals(want, decoded) {
+		if !lang.Equals(original, decoded) {
 			t.Fatalf("events differ for %q", input)
 		}
 	}
 	for _, input := range []string{"[unterminated", "x: true/* unfinished"} {
-		_, old := parse(input, "{}")
-		_, next := parseBinary(input, "{}")
-		if old == nil || next == nil || old.Error() != next.Error() {
-			t.Fatalf("errors differ: %v, %v", old, next)
+		if _, err := parseBinary(input, "{}"); err == nil {
+			t.Fatalf("accepted invalid input %q", input)
 		}
 	}
 	if _, err := parseBinary("x", "[]"); err == nil {
@@ -55,8 +48,6 @@ func BenchmarkTransport(b *testing.B) {
 	if err := initialize(); err != nil {
 		b.Fatal(err)
 	}
-	print := glj.Var("clojure.core", "pr-str")
-	read := glj.Var("clojure.core", "read-string")
 	parseEvents := glj.Var("yamlstar-plugin.json-comments", "parse-events")
 	for _, size := range []int{1024, 32 * 1024, 240 * 1024} {
 		for _, kind := range []string{"scalars", "strings"} {
@@ -69,20 +60,17 @@ func BenchmarkTransport(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
-			edn := print.Invoke(vector).(string)
 			prefix := fmt.Sprintf("%s/%d", kind, size)
 			for _, operation := range []struct {
 				name  string
 				bytes int
 				run   func()
 			}{
-				{"EDN/encode", len(edn), func() { print.Invoke(vector) }},
 				{"binary/encode", len(packet), func() {
 					if _, err := binaryevents.Encode(vector); err != nil {
 						b.Fatal(err)
 					}
 				}},
-				{"EDN/decode", len(edn), func() { read.Invoke(edn) }},
 				{"binary/decode", len(packet), func() {
 					if _, err := binaryevents.Decode(packet); err != nil {
 						b.Fatal(err)
@@ -122,19 +110,10 @@ func TestBinaryPreservesUnicode(t *testing.T) {
 	if value != "λ\x00\n" {
 		t.Fatalf("Unicode scalar: %q", value)
 	}
-	// Glojure 0.7.15 pr-str corrupts non-ASCII strings in the legacy path.
-	// Compare binary to the original events rather than preserving that bug.
-	edn, err := parse(input, "{}")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !lang.Equals(glj.Var("clojure.core", "read-string").Invoke(edn), decoded) {
-		t.Log("legacy EDN transport changes Unicode; binary preserves it")
-	}
+
 }
 
-// Kept separate so ordinary tests do not run the slow legacy printer on
-// the large-string benchmark fixture.
+// Wire measurements are separate from ordinary correctness tests.
 func TestBinaryWireSizes(t *testing.T) {
 	if os.Getenv("YAMLSTAR_BINARY_SIZES") == "" {
 		t.Skip("run make binary-sizes")
@@ -153,8 +132,7 @@ func TestBinaryWireSizes(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			edn := glj.Var("clojure.core", "pr-str").Invoke(vector).(string)
-			fmt.Printf("WIRE %s/%d %d %d\n", kind, size, len(edn), len(packet))
+			fmt.Printf("WIRE %s/%d %d\n", kind, size, len(packet))
 		}
 	}
 }

@@ -52,25 +52,6 @@ func initialize() error {
 	return initializeErr
 }
 
-func parse(input, options string) (output string, err error) {
-	if err := initialize(); err != nil {
-		return "", err
-	}
-	defer func() {
-		if value := recover(); value != nil {
-			output = ""
-			err = fmt.Errorf("%v", value)
-		}
-	}()
-	value := glj.Var("yamlstar-plugin.json-comments", "parse-edn").Invoke(
-		input, options)
-	text, ok := value.(string)
-	if !ok {
-		return "", fmt.Errorf("unexpected parse result type %T", value)
-	}
-	return text, nil
-}
-
 func writeOutput(text string, output **C.uint8_t, length *C.size_t) C.int32_t {
 	return writeBytes([]byte(text), output, length)
 }
@@ -118,32 +99,6 @@ func yamlstar_plugin_v1_manifest(
 	length *C.size_t,
 ) C.int32_t {
 	return writeOutput(manifest, output, length)
-}
-
-//export yamlstar_plugin_v1_parse
-func yamlstar_plugin_v1_parse(
-	input *C.uint8_t,
-	inputLength C.size_t,
-	options *C.uint8_t,
-	optionsLength C.size_t,
-	output **C.uint8_t,
-	outputLength *C.size_t,
-) C.int32_t {
-	if (input == nil && inputLength != 0) ||
-		(options == nil && optionsLength != 0) {
-		_ = writeOutput(errorEDN("abi", fmt.Errorf("nil input pointer")),
-			output, outputLength)
-		return 2
-	}
-	inputText := string(C.GoBytes(unsafe.Pointer(input), C.int(inputLength)))
-	optionsText := string(C.GoBytes(
-		unsafe.Pointer(options), C.int(optionsLength)))
-	result, err := parse(inputText, optionsText)
-	if err != nil {
-		_ = writeOutput(errorEDN("parse", err), output, outputLength)
-		return 1
-	}
-	return writeOutput(result, output, outputLength)
 }
 
 //export yamlstar_plugin_v1_free

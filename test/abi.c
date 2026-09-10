@@ -21,7 +21,6 @@ typedef int32_t (*parse_fn)(const uint8_t *, size_t, const uint8_t *,
 typedef void (*free_fn)(uint8_t *);
 
 struct api {
-    parse_fn parse;
     parse_fn parse_binary;
     free_fn free_output;
 };
@@ -50,13 +49,16 @@ static char *parse(struct api *api, const char *input, int32_t *status) {
     static const char options[] = "{}";
     uint8_t *output = NULL;
     size_t length = 0;
-    *status = api->parse(
+    *status = api->parse_binary(
         (const uint8_t *) input,
         strlen(input),
         (const uint8_t *) options,
         strlen(options),
         &output,
         &length);
+    if (*status == 0 && (length < 16 || memcmp(output, "YEBP", 4))) {
+        fail("invalid binary event response");
+    }
     return take_output(api, output, length);
 }
 
@@ -65,7 +67,7 @@ static void *parse_repeatedly(void *argument) {
     for (int attempt = 0; attempt < 10; attempt++) {
         int32_t status;
         char *output = parse(api, "value: true// comment\n", &status);
-        if (status != 0 || strstr(output, "\"true\"") == NULL) {
+        if (status != 0 || memcmp(output, "YEBP", 4) != 0) {
             fail("concurrent parse failed");
         }
         free(output);
@@ -102,14 +104,16 @@ int main(void) {
     struct api api = {
         .parse_binary = (parse_fn) dlsym(
             handle, "yamlstar_plugin_v1_parse_binary"),
-        .parse = (parse_fn) dlsym(handle, "yamlstar_plugin_v1_parse"),
         .free_output = (free_fn) dlsym(
             handle, "yamlstar_plugin_v1_free"),
     };
-    if (abi == NULL || manifest == NULL || api.parse == NULL
+    if (abi == NULL || manifest == NULL
         || api.parse_binary == NULL
         || api.free_output == NULL) {
         fail("plugin ABI symbol is missing");
+    }
+    if (dlsym(handle, "yamlstar_plugin_v1_parse") != NULL) {
+        fail("plugin still exports EDN event parsing");
     }
     if (abi() != 1) {
         fail("plugin ABI version is not 1");
@@ -122,7 +126,7 @@ int main(void) {
     }
     char *manifest_text = take_output(
         &api, manifest_output, manifest_length);
-    if (strstr(manifest_text, ":api \"json-comments\"") == NULL) {
+    if (strstr(manifest_text, ":api \"parser\"") == NULL) {
         fail("manifest API is incorrect");
     }
     if (strstr(manifest_text, ":version \"" PLUGIN_VERSION "\"")
@@ -137,8 +141,7 @@ int main(void) {
         "a: true// comment\nb: foo// not a comment\n"
         "c: foo // comment\nd: http://not-a-comment.com\n",
         &status);
-    if (status != 0 || strstr(output, "foo// not a comment") == NULL
-        || strstr(output, "http://not-a-comment.com") == NULL) {
+    if (status != 0 || memcmp(output, "YEBP", 4) != 0) {
         fail("parse result is incorrect");
     }
     free(output);
