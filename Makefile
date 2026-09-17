@@ -113,7 +113,7 @@ MAKES-CLEAN := \
   $(WHEEL-CACHE) \
   $(WHEEL-TEST-VENV) \
   $(GENERATED_WORK) \
-  $(GENERATED_DIR) \
+  $(GENERATED_DIR)/.generated \
   $(RELEASE_LIB_DIR) \
   dist \
   lib \

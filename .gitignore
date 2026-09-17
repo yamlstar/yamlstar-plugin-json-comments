@@ -1,7 +1,7 @@
 /.cache/
 /.cache-*/
 /dist/
-/internal/glojure/
+/internal/glojure/.generated
 /lib/
 /python/build/
 /python/dist/

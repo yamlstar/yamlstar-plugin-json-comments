@@ -16,6 +16,7 @@ import (
 	"github.com/glojurelang/glojure/pkg/glj"
 	"github.com/glojurelang/glojure/pkg/lang"
 	binaryevents "github.com/yamlstar/yaml-events-binary-protocol/glojure"
+	"github.com/yamlstar/yamlstar-plugin-json-comments/internal/eventedn"
 	_ "github.com/yamlstar/yamlstar-plugin-json-comments/internal/glojure/pkg/yaml_parser/core"
 	_ "github.com/yamlstar/yamlstar-plugin-json-comments/internal/glojure/pkg/yaml_parser/grammar"
 	_ "github.com/yamlstar/yamlstar-plugin-json-comments/internal/glojure/pkg/yaml_parser/parser"
@@ -95,12 +96,7 @@ func parseEDN(input, options string) (output string, err error) {
 	}()
 	value := glj.Var("yamlstar-plugin.json-comments", "parse-events").Invoke(
 		input, options)
-	text := glj.Var("clojure.core", "pr-str").Invoke(value)
-	result, ok := text.(string)
-	if !ok {
-		return "", fmt.Errorf("unexpected parse result type %T", text)
-	}
-	return result, nil
+	return eventedn.Encode(value)
 }
 
 func errorEDN(kind string, err error) string {

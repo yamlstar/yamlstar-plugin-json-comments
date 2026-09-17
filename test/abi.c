@@ -154,6 +154,12 @@ int main(void) {
     }
     free(edn);
 
+    edn = parse_edn(&api, "value: λ // comment\n", &status);
+    if (status != 0 || strstr(edn, ":value \"λ\"") == NULL) {
+        fail("EDN Unicode result is incorrect");
+    }
+    free(edn);
+
     edn = parse_edn(&api, "value: true/* comment\n", &status);
     if (status != 1 || strstr(edn, "Unterminated block comment") == NULL) {
         fail("EDN parse error result is incorrect");
