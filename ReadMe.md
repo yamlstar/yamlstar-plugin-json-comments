@@ -15,6 +15,7 @@ Manifests, options, and error envelopes use EDN in both cases.
 Run `make benchmark-binary` to measure binary encoding and decoding.
 The native ABI test covers parsing, errors, and concurrent use.
 Binary transport preserves Unicode scalar values directly.
+The EDN response also preserves Unicode scalar values.
 
 Version 0.1 supports Unix shared libraries.
 It deliberately has no installation or download side effects.
@@ -25,6 +26,23 @@ YAMLStar:
 ```sh
 make build
 ```
+
+The `parser` Go package embeds the generated reference parser for programs
+that need JSON-style comments without a shared library or C compiler.
+The generated Go sources are committed so the package builds through the
+normal Go module path.
+It uses the same Clojure source and comment sanitizer as the YAMLStar plugin:
+
+```go
+import "github.com/yamlstar/yamlstar-plugin-json-comments/parser"
+
+events, err := parser.Parse([]byte("a: true // comment\n"))
+```
+
+`Parse` buffers UTF-8 input and returns events without source positions or
+retained comments.
+Go callers can use it concurrently; parsing is serialized because the
+generated runtime has shared state.
 
 Run the performance regression gate with:
 
