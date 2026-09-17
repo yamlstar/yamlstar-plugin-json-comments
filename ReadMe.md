@@ -2,15 +2,15 @@
 
 This repository builds the JSON comments parser plugin for YAMLStar.
 The plugin accepts UTF-8 input through the YAMLStar shared-plugin ABI and
-returns YAMLStar parser events through binary transport.
+returns YAMLStar parser events through EDN transport.
 
-The required binary event ABI uses
+The optional binary event ABI uses
 `github.com/yamlstar/yaml-events-binary-protocol` v0.1.0, compiled into the
 plugin as a normal Go dependency.
 No separate protocol checkout or runtime library is needed.
-Parser events use YEBP v1; manifests, options, and error envelopes use EDN.
-The plugin does not export the old EDN event entry point.
-It requires a YAMLStar Glojure host with binary shared parser support.
+YAMLStar 0.1.21 uses the EDN event entry point.
+Hosts that support the binary entry point can use YEBP v1.
+Manifests, options, and error envelopes use EDN in both cases.
 
 Run `make benchmark-binary` to measure binary encoding and decoding.
 The native ABI test covers parsing, errors, and concurrent use.

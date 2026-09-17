@@ -1,6 +1,7 @@
 {:abi 1
- :api "parser"
+ :api "json-comments"
  :name "json-comments"
  :version "0.1.6"
- :kind "parser"
- :event-format "yamlstar-events-binary-v1"}
+ :kind "event-source"
+ :requires {:parser "reference"}
+ :event-format "yamlstar-events-edn-v1"}

@@ -83,6 +83,26 @@ func parseBinary(input, options string) (output []byte, err error) {
 	return binaryevents.Encode(value)
 }
 
+func parseEDN(input, options string) (output string, err error) {
+	if err := initialize(); err != nil {
+		return "", err
+	}
+	defer func() {
+		if value := recover(); value != nil {
+			output = ""
+			err = fmt.Errorf("%v", value)
+		}
+	}()
+	value := glj.Var("yamlstar-plugin.json-comments", "parse-events").Invoke(
+		input, options)
+	text := glj.Var("clojure.core", "pr-str").Invoke(value)
+	result, ok := text.(string)
+	if !ok {
+		return "", fmt.Errorf("unexpected parse result type %T", text)
+	}
+	return result, nil
+}
+
 func errorEDN(kind string, err error) string {
 	return "{:error {:type " + strconv.Quote(kind) +
 		" :message " + strconv.Quote(err.Error()) + " :data {}}}"
@@ -99,6 +119,37 @@ func yamlstar_plugin_v1_manifest(
 	length *C.size_t,
 ) C.int32_t {
 	return writeOutput(manifest, output, length)
+}
+
+//export yamlstar_plugin_v1_parse
+func yamlstar_plugin_v1_parse(
+	input *C.uint8_t, inputLength C.size_t,
+	options *C.uint8_t, optionsLength C.size_t,
+	output **C.uint8_t, outputLength *C.size_t,
+) C.int32_t {
+	if output == nil || outputLength == nil {
+		return 2
+	}
+	*output = nil
+	*outputLength = 0
+	maxLength := uint64(^uint32(0))
+	if (input == nil && inputLength != 0) ||
+		(options == nil && optionsLength != 0) ||
+		uint64(inputLength) > maxLength || uint64(optionsLength) > maxLength {
+		_ = writeOutput(errorEDN("abi", fmt.Errorf("invalid input buffer")),
+			output, outputLength)
+		return 2
+	}
+	inputText := string(unsafe.Slice((*byte)(unsafe.Pointer(input)),
+		int(inputLength)))
+	optionsText := string(unsafe.Slice((*byte)(unsafe.Pointer(options)),
+		int(optionsLength)))
+	result, err := parseEDN(inputText, optionsText)
+	if err != nil {
+		_ = writeOutput(errorEDN("parse", err), output, outputLength)
+		return 1
+	}
+	return writeOutput(result, output, outputLength)
 }
 
 //export yamlstar_plugin_v1_free

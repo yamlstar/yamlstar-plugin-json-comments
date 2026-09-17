@@ -21,6 +21,7 @@ typedef int32_t (*parse_fn)(const uint8_t *, size_t, const uint8_t *,
 typedef void (*free_fn)(uint8_t *);
 
 struct api {
+    parse_fn parse;
     parse_fn parse_binary;
     free_fn free_output;
 };
@@ -59,6 +60,16 @@ static char *parse(struct api *api, const char *input, int32_t *status) {
     if (*status == 0 && (length < 16 || memcmp(output, "YEBP", 4))) {
         fail("invalid binary event response");
     }
+    return take_output(api, output, length);
+}
+
+static char *parse_edn(struct api *api, const char *input, int32_t *status) {
+    static const char options[] = "{}";
+    uint8_t *output = NULL;
+    size_t length = 0;
+    *status = api->parse(
+        (const uint8_t *) input, strlen(input),
+        (const uint8_t *) options, strlen(options), &output, &length);
     return take_output(api, output, length);
 }
 
@@ -102,18 +113,16 @@ int main(void) {
     manifest_fn manifest = (manifest_fn) dlsym(
         handle, "yamlstar_plugin_v1_manifest");
     struct api api = {
+        .parse = (parse_fn) dlsym(handle, "yamlstar_plugin_v1_parse"),
         .parse_binary = (parse_fn) dlsym(
             handle, "yamlstar_plugin_v1_parse_binary"),
         .free_output = (free_fn) dlsym(
             handle, "yamlstar_plugin_v1_free"),
     };
-    if (abi == NULL || manifest == NULL
+    if (abi == NULL || manifest == NULL || api.parse == NULL
         || api.parse_binary == NULL
         || api.free_output == NULL) {
         fail("plugin ABI symbol is missing");
-    }
-    if (dlsym(handle, "yamlstar_plugin_v1_parse") != NULL) {
-        fail("plugin still exports EDN event parsing");
     }
     if (abi() != 1) {
         fail("plugin ABI version is not 1");
@@ -126,7 +135,10 @@ int main(void) {
     }
     char *manifest_text = take_output(
         &api, manifest_output, manifest_length);
-    if (strstr(manifest_text, ":api \"parser\"") == NULL) {
+    if (strstr(manifest_text, ":api \"json-comments\"") == NULL
+        || strstr(manifest_text, ":kind \"event-source\"") == NULL
+        || strstr(manifest_text, ":event-format "
+                  "\"yamlstar-events-edn-v1\"") == NULL) {
         fail("manifest API is incorrect");
     }
     if (strstr(manifest_text, ":version \"" PLUGIN_VERSION "\"")
@@ -136,6 +148,18 @@ int main(void) {
     free(manifest_text);
 
     int32_t status;
+    char *edn = parse_edn(&api, "a: b // c", &status);
+    if (status != 0 || strstr(edn, ":value \"b\"") == NULL) {
+        fail("EDN parse result is incorrect");
+    }
+    free(edn);
+
+    edn = parse_edn(&api, "value: true/* comment\n", &status);
+    if (status != 1 || strstr(edn, "Unterminated block comment") == NULL) {
+        fail("EDN parse error result is incorrect");
+    }
+    free(edn);
+
     char *output = parse(
         &api,
         "a: true// comment\nb: foo// not a comment\n"
