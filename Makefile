@@ -74,9 +74,11 @@ RELEASE-ARCH := $(if $(IS-INTEL),x64,\
   $(if $(IS-LINUX),aarch64,arm64))
 RELEASE_PLATFORM ?= $(OS-NAME)-$(RELEASE-ARCH)
 RELEASE_NAME := $(PLUGIN)-$(VERSION)-$(RELEASE_PLATFORM)
+COMPAT-RELEASE-NAME := $(PLUGIN)-v$(VERSION)-$(RELEASE_PLATFORM)
 WHEEL-STAGE := $(WHEEL-CACHE)/$(RELEASE_NAME)/.staged
 RELEASE_DIR := dist/$(RELEASE_NAME)
 ARCHIVE := dist/$(RELEASE_NAME).tar.xz
+COMPAT-ARCHIVE := dist/$(COMPAT-RELEASE-NAME).tar.xz
 SOURCE_DATE_EPOCH ?= $(shell git log -1 --format=%ct)
 TAR ?= $(if $(IS-MACOS),gtar,tar)
 MANYLINUX-REPO-linux-x64 := quay.io/pypa/manylinux_2_28_x86_64
@@ -237,6 +239,8 @@ release-linux: | $(DOCKER)
 
 release-archive: $(ARCHIVE)
 
+release-compat-archive: $(COMPAT-ARCHIVE)
+
 export OLD_VERSION := $o
 export NEW_VERSION := $(or $v,$n)
 ifdef d
@@ -321,6 +325,18 @@ $(ARCHIVE): Makefile release-check test-release plugin.edn \
 	  -C dist -cJf "$@" "$(RELEASE_NAME)"
 	$(MAKE) test-archive ARCHIVE="$@" \
 	  RELEASE_PLATFORM="$(RELEASE_PLATFORM)" VERSION="$(VERSION)"
+
+$(COMPAT-ARCHIVE):
+	test -f "$(ARCHIVE)"
+	rm -f "$@"
+	COPYFILE_DISABLE=1 $(TAR) \
+	  --sort=name \
+	  --mtime="@$(SOURCE_DATE_EPOCH)" \
+	  --owner=0 --group=0 --numeric-owner \
+	  --transform='s,^$(RELEASE_NAME),$(COMPAT-RELEASE-NAME),' \
+	  -C dist -cJf "$@" "$(RELEASE_NAME)"
+	$(TAR) -tf "$@" | \
+	  grep -Fx "$(COMPAT-RELEASE-NAME)/lib/$(LIB-NAME)" >/dev/null
 
 $(WHEEL-STAGE): $(ARCHIVE) plugin.edn License python/setup.py \
   python/lib/$(WHEEL-PACKAGE)/__init__.py

@@ -5,6 +5,7 @@ set -euo pipefail
 command=${1:-list}
 old_version=${2:-${OLD_VERSION:-}}
 new_version=${3:-${NEW_VERSION:-}}
+release_tag=v$new_version
 perl=${PERL:?PERL must name the project-managed Perl}
 gh=${GH:-gh}
 release_repo=${RELEASE_REPO:-yamlstar/yamlstar-plugin-json-comments}
@@ -75,14 +76,14 @@ do_list() {
 JSON Comments Plugin Release Process
 ====================================
 
-Publish the already-versioned first release:
-  make release v=0.1.0
+Publish an already-versioned release:
+  make release v=0.1.8
 
 Run a complete version-bump release:
-  make release o=0.1.0 v=0.1.1
+  make release o=0.1.7 v=0.1.8
 
 Preview either workflow without changing anything:
-  make release o=0.1.0 v=0.1.1 d=1
+  make release o=0.1.7 v=0.1.8 d=1
 
 Individual steps:
   make release-sanity-check o=OLD_VERSION v=NEW_VERSION
@@ -95,6 +96,7 @@ Individual steps:
   make release-retry v=VERSION
 
 Set a=1 to allow a release from a branch other than main.
+Release tags use vVERSION; manifests, archives, and wheels use VERSION.
 EOF
 }
 
@@ -119,10 +121,10 @@ do_sanity_check() {
     die 'Working tree is not clean'
   fi
 
-  if git rev-parse "$new_version" >/dev/null 2>&1; then
-    if [[ $(git rev-parse "$new_version^{commit}") != \
+  if git rev-parse "$release_tag" >/dev/null 2>&1; then
+    if [[ $(git rev-parse "$release_tag^{commit}") != \
           $(git rev-parse HEAD) ]]; then
-      die "Tag $new_version already exists away from HEAD"
+      die "Tag $release_tag already exists away from HEAD"
     fi
   fi
 
@@ -210,24 +212,24 @@ do_tag() {
   [[ $(current_version) == "$new_version" ]] ||
     die "Version files do not contain $new_version"
 
-  if git rev-parse "$new_version" >/dev/null 2>&1; then
-    tag_points_to_head "$new_version"
-    printf 'Tag %s already points to HEAD\n' "$new_version"
+  if git rev-parse "$release_tag" >/dev/null 2>&1; then
+    tag_points_to_head "$release_tag"
+    printf 'Tag %s already points to HEAD\n' "$release_tag"
     return
   fi
 
   if [[ -n $dry_run ]]; then
-    printf 'Would create tag %s\n' "$new_version"
+    printf 'Would create tag %s\n' "$release_tag"
     return
   fi
 
-  git tag "$new_version"
-  printf 'Created tag %s\n' "$new_version"
+  git tag "$release_tag"
+  printf 'Created tag %s\n' "$release_tag"
 }
 
 do_push() {
   require_new_version
-  tag_points_to_head "$new_version"
+  tag_points_to_head "$release_tag"
 
   local branch
   branch=$(git branch --show-current)
@@ -235,18 +237,18 @@ do_push() {
 
   if [[ -n $dry_run ]]; then
     printf 'Would publish branch %s and tag %s to origin\n' \
-      "$branch" "$new_version"
+      "$branch" "$release_tag"
     return
   fi
 
   git push origin "$branch"
-  git push origin "$new_version"
-  printf 'Published branch %s and tag %s\n' "$branch" "$new_version"
+  git push origin "$release_tag"
+  printf 'Published branch %s and tag %s\n' "$branch" "$release_tag"
 }
 
 do_build_github() {
   require_new_version
-  tag_points_to_head "$new_version"
+  tag_points_to_head "$release_tag"
 
   local branch run_id
   branch=$(git branch --show-current)
@@ -259,8 +261,8 @@ do_build_github() {
   fi
 
   git ls-remote --exit-code --tags origin \
-    "refs/tags/$new_version" >/dev/null ||
-    die "Tag $new_version is not available on origin"
+    "refs/tags/$release_tag" >/dev/null ||
+    die "Tag $release_tag is not available on origin"
 
   "$gh" workflow run "$release_workflow" \
     --repo "$release_repo" \
@@ -287,7 +289,7 @@ do_build_github() {
 
 do_rerun_failed_github() {
   local commit run_id
-  commit=$(git rev-parse "$new_version^{commit}")
+  commit=$(git rev-parse "$release_tag^{commit}")
   run_id=$(
     "$gh" run list \
       --workflow "$release_workflow" \
@@ -300,7 +302,7 @@ do_rerun_failed_github() {
       --jq '.[0].databaseId'
   )
   [[ -n $run_id ]] ||
-    die "Could not find a failed release run for $new_version"
+    die "Could not find a failed release run for $release_tag"
   printf 'Rerunning failed jobs from workflow run %s\n' "$run_id"
   "$gh" run rerun "$run_id" --repo "$release_repo" --failed
   "$gh" run watch "$run_id" \
@@ -317,17 +319,14 @@ do_retry() {
   local branch asset_count
   branch=$(git branch --show-current)
   [[ -n $branch ]] || die 'Cannot release from detached HEAD'
-  git rev-parse "$new_version" >/dev/null 2>&1 ||
-    die "Tag $new_version does not exist"
-  git merge-base --is-ancestor "$new_version^{commit}" HEAD ||
-    die "Tag $new_version is not an ancestor of HEAD"
+  tag_points_to_head "$release_tag"
   if [[ -z $dry_run && -n $(git status --porcelain) ]]; then
     git status --short >&2
     die 'Working tree is not clean'
   fi
 
   asset_count=$(
-    "$gh" release view "$new_version" \
+    "$gh" release view "$release_tag" \
       --repo "$release_repo" \
       --json assets \
       --jq '.assets | length' 2>/dev/null || printf '0\n'
@@ -335,10 +334,9 @@ do_retry() {
 
   if [[ -n $dry_run ]]; then
     if [[ $asset_count == 0 ]]; then
-      printf 'Would update branch %s and tag %s, then rerun the workflow\n' \
-        "$branch" "$new_version"
+      printf 'Would rerun the workflow for tag %s\n' "$release_tag"
     else
-      printf 'Would rerun failed jobs for release %s\n' "$new_version"
+      printf 'Would rerun failed jobs for release %s\n' "$release_tag"
     fi
     return
   fi
@@ -348,9 +346,6 @@ do_retry() {
     return
   fi
 
-  git tag -f "$new_version" HEAD
-  git push origin "$branch"
-  git push --force origin "refs/tags/$new_version"
   do_build_github
 }
 
@@ -389,8 +384,8 @@ do_release() {
       die 'Release stopped before the version commit'
     do_commit
   fi
-  if ! git rev-parse "$new_version" >/dev/null 2>&1; then
-    confirm "Create tag $new_version?" ||
+  if ! git rev-parse "$release_tag" >/dev/null 2>&1; then
+    confirm "Create tag $release_tag?" ||
       die 'Release stopped before tag creation'
     do_tag
   fi

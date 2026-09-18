@@ -31,6 +31,8 @@ The `parser` Go package embeds the generated reference parser for programs
 that need JSON-style comments without a shared library or C compiler.
 The generated Go sources are committed so the package builds through the
 normal Go module path.
+Starting with 0.1.8, release tags use the Go module format `v0.1.8`.
+Older `0.1.x` release tags remain available for existing YAMLStar installs.
 It uses the same Clojure source and comment sanitizer as the YAMLStar plugin:
 
 ```go
@@ -70,7 +72,9 @@ x86-64 and ARM64.
 Linux release libraries require glibc 2.28 or newer.
 The initial macOS artifacts are not Developer ID signed or notarized.
 
-The release archives use the same platform names as YAMLStar:
+The release archives use the same platform names as YAMLStar.
+The primary archive filenames and embedded manifest versions use the
+unprefixed version, even though new GitHub release tags start with `v`:
 
 ```text
 yamlstar-plugin-json-comments-VERSION-linux-x64.tar.xz
@@ -78,6 +82,10 @@ yamlstar-plugin-json-comments-VERSION-linux-aarch64.tar.xz
 yamlstar-plugin-json-comments-VERSION-macos-x64.tar.xz
 yamlstar-plugin-json-comments-VERSION-macos-arm64.tar.xz
 ```
+
+Starting with 0.1.8, each release also includes an archive named with
+`vVERSION` and the same library under a `vVERSION` directory.
+This lets YAMLStar versions released before v-prefixed tags install the plugin.
 
 Install the library for the current user by copying it from the unpacked
 archive:
@@ -126,16 +134,16 @@ List the complete release process with:
 make release-list
 ```
 
-Publish an already-versioned first release with:
+Publish an already-versioned release with:
 
 ```sh
-make release v=0.1.0
+make release v=0.1.8
 ```
 
 For subsequent releases, provide the old and new versions:
 
 ```sh
-make release o=0.1.1 v=0.1.2
+make release o=0.1.7 v=0.1.8
 ```
 
 The interactive command checks the version and working tree, updates the
@@ -152,14 +160,15 @@ Use `a=1` to allow the full release command to run from a branch other than
 Retry a failed release workflow with:
 
 ```sh
-make release-retry v=0.1.2
+make release-retry v=0.1.8
 ```
 
-Before GitHub assets exist, retry updates the release tag and starts a new
-workflow run.
+Before GitHub assets exist, retry starts a new workflow run against the same
+tag.
+If tagged source needs a fix, release a new version because Go module tags
+must not be moved.
 After assets exist, it reruns the failed jobs so a failed PyPI publication can
 resume without rebuilding or replacing immutable files.
 
-The GitHub release workflow requires an existing plain version tag such as
-`0.1.0`.
+The GitHub release workflow requires a `v`-prefixed tag such as `v0.1.8`.
 It does not download, build, or test YAMLStar.
