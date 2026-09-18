@@ -21,6 +21,7 @@ concurrency:
 
 env:
   VERSION: ${{ inputs.version }}
+  RELEASE_TAG: v${{ inputs.version }}
 
 jobs:
   verify-release:
@@ -30,7 +31,7 @@ jobs:
     - name: Check out tag
       uses: actions/checkout@v5
       with:
-        ref: ${{ inputs.version }}
+        ref: v${{ inputs.version }}
         fetch-depth: 0
 
     - name: Check tag and version
@@ -39,13 +40,13 @@ jobs:
           echo "Invalid version: $VERSION" >&2
           exit 1
         fi
-        if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
-          echo "Tag does not exist: $VERSION" >&2
+        if ! git rev-parse "$RELEASE_TAG" >/dev/null 2>&1; then
+          echo "Tag does not exist: $RELEASE_TAG" >&2
           exit 1
         fi
-        if [[ $(git rev-parse "$VERSION^{commit}") != \
+        if [[ $(git rev-parse "$RELEASE_TAG^{commit}") != \
               $(git rev-parse HEAD) ]]; then
-          echo "Tag $VERSION does not point to checkout HEAD" >&2
+          echo "Tag $RELEASE_TAG does not point to checkout HEAD" >&2
           exit 1
         fi
         manifest_version=$(
@@ -60,9 +61,9 @@ jobs:
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
-        if gh release view "$VERSION" --json assets \
+        if gh release view "$RELEASE_TAG" --json assets \
           --jq '.assets | length' 2>/dev/null | grep -q '^[1-9]'; then
-          echo "Release $VERSION already has assets" >&2
+          echo "Release $RELEASE_TAG already has assets" >&2
           exit 1
         fi
 
@@ -74,7 +75,7 @@ jobs:
     - name: Check out tag
       uses: actions/checkout@v5
       with:
-        ref: ${{ inputs.version }}
+        ref: v${{ inputs.version }}
 
     - name: Generate Go sources
       run: make generate
@@ -105,7 +106,7 @@ jobs:
     - name: Check out tag
       uses: actions/checkout@v5
       with:
-        ref: ${{ inputs.version }}
+        ref: v${{ inputs.version }}
 
     - name: Download generated sources
       uses: actions/download-artifact@v7
@@ -116,6 +117,10 @@ jobs:
     - name: Build release archive and wheel
       run: |
         make wheel \
+          VERSION="$VERSION" \
+          RELEASE_PLATFORM="${{ matrix.platform }}" \
+          USE_GENERATED_SOURCES=1
+        make release-compat-archive \
           VERSION="$VERSION" \
           RELEASE_PLATFORM="${{ matrix.platform }}" \
           USE_GENERATED_SOURCES=1
@@ -148,7 +153,7 @@ jobs:
     - name: Check out tag
       uses: actions/checkout@v5
       with:
-        ref: ${{ inputs.version }}
+        ref: v${{ inputs.version }}
 
     - name: Download generated sources
       uses: actions/download-artifact@v7
@@ -164,6 +169,11 @@ jobs:
     - name: Build release archive and wheel
       run: |
         make wheel \
+          VERSION="$VERSION" \
+          RELEASE_PLATFORM="${{ matrix.platform }}" \
+          USE_GENERATED_SOURCES=1 \
+          TAR=gtar
+        make release-compat-archive \
           VERSION="$VERSION" \
           RELEASE_PLATFORM="${{ matrix.platform }}" \
           USE_GENERATED_SOURCES=1 \
@@ -203,7 +213,7 @@ jobs:
     - name: Check out tag
       uses: actions/checkout@v5
       with:
-        ref: ${{ inputs.version }}
+        ref: v${{ inputs.version }}
 
     - name: Configure Git workspace
       run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -229,6 +239,10 @@ jobs:
           WHEEL="$wheel" \
           RELEASE_PLATFORM="$platform" \
           VERSION="$VERSION"
+        compat="release-artifact/yamlstar-plugin-json-comments-v$VERSION-$platform.tar.xz"
+        compat_root="yamlstar-plugin-json-comments-v$VERSION-$platform"
+        tar -tf "$compat" |
+          grep -Fx "$compat_root/lib/libyamlstar-plugin-json-comments.so" >/dev/null
 
   test-macos-assets:
     name: Test ${{ matrix.platform }} asset
@@ -246,7 +260,7 @@ jobs:
     - name: Check out tag
       uses: actions/checkout@v5
       with:
-        ref: ${{ inputs.version }}
+        ref: v${{ inputs.version }}
 
     - name: Download build artifact
       uses: actions/download-artifact@v7
@@ -269,6 +283,10 @@ jobs:
           WHEEL="$wheel" \
           RELEASE_PLATFORM="$platform" \
           VERSION="$VERSION"
+        compat="release-artifact/yamlstar-plugin-json-comments-v$VERSION-$platform.tar.xz"
+        compat_root="yamlstar-plugin-json-comments-v$VERSION-$platform"
+        tar -tf "$compat" |
+          grep -Fx "$compat_root/lib/libyamlstar-plugin-json-comments.dylib" >/dev/null
 
   create-release:
     name: Create GitHub prerelease
@@ -283,9 +301,9 @@ jobs:
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
-        if ! gh release view "$VERSION" \
+        if ! gh release view "$RELEASE_TAG" \
           --repo "${{ github.repository }}" >/dev/null 2>&1; then
-          gh release create "$VERSION" \
+          gh release create "$RELEASE_TAG" \
             --repo "${{ github.repository }}" \
             --title "JSON Comments Plugin $VERSION" \
             --notes "Experimental YAMLStar JSON comments plugin binaries." \
@@ -321,10 +339,10 @@ jobs:
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
-        gh release upload "$VERSION" release-assets/* \
+        gh release upload "$RELEASE_TAG" release-assets/* \
           --repo "${{ github.repository }}" \
           --clobber
-        gh release view "$VERSION" --repo "${{ github.repository }}"
+        gh release view "$RELEASE_TAG" --repo "${{ github.repository }}"
 
   publish-pypi:
     name: Publish wheels to PyPI
@@ -340,7 +358,7 @@ jobs:
         GH_TOKEN: ${{ github.token }}
       run: |
         mkdir pypi-assets
-        gh release download "$VERSION" \
+        gh release download "$RELEASE_TAG" \
           --repo "${{ github.repository }}" \
           --pattern '*.whl' \
           --dir pypi-assets
