@@ -122,12 +122,13 @@
                   (nth characters (- position 2)))))
 
 (defn- comment-boundary?
-  [characters position quoted-end? after-comment?
+  [characters position node-end? after-comment?
    line-start value-start prefix-eligible?]
   (let [simple-boundary?
         (or (zero? position)
-            quoted-end?
+            node-end?
             after-comment?
+            (= value-start position)
             (json-colon-before? characters position)
             (let [previous (nth characters (dec position))]
               (or (whitespace? previous)
@@ -142,15 +143,16 @@
        false])))
 
 (defn- quote-start?
-  [characters position]
+  [characters position after-comment?]
   (or (zero? position)
+      after-comment?
       (let [previous (nth characters (dec position))]
         (or (whitespace? previous)
             (contains? #{\[ \{ \, \: \?} previous)))))
 
-(defn- mask-comment
+(defn- remove-comment
   [comment]
-  (str/replace comment #"[^\r\n]" " "))
+  (str/replace comment #"[^\r\n]" ""))
 
 (defn- line-comment-end
   [characters length position]
@@ -207,7 +209,7 @@
                prefix-eligible?)))))
 
 (defn sanitize-comments
-  "Replace JSON-style comments with spaces while preserving offsets."
+  "Remove recognized JSON-style comments while preserving line endings."
   [input]
   (if (and (nil? (str/index-of input "//"))
            (nil? (str/index-of input "/*")))
@@ -221,7 +223,7 @@
              copy-start 0
              quote nil
              escaped? false
-             quoted-end? false
+             node-end? false
              after-comment? false
              line-start 0
              value-start 0
@@ -245,7 +247,7 @@
 
               (> position start)
               (recur position (next ranges) output copy-start quote
-                     escaped? quoted-end? after-comment? line-start
+                     escaped? node-end? after-comment? line-start
                      value-start prefix-eligible?)
 
               :else
@@ -256,7 +258,7 @@
                     (if (and (= character \/)
                              (#{\/ \*} next-character))
                       (comment-boundary?
-                       characters position quoted-end? after-comment?
+                       characters position node-end? after-comment?
                        line-start value-start prefix-eligible?)
                       [false prefix-eligible?])]
                 (cond
@@ -285,7 +287,8 @@
                            value-start prefix-eligible?))
 
                   (and (#{\' \"} character)
-                       (quote-start? characters position))
+                       (quote-start?
+                        characters position after-comment?))
                   (let [[line-start value-start prefix-eligible?]
                         (context-after-character
                          characters length position line-start value-start
@@ -312,21 +315,32 @@
                            (conj output
                                  (text-between
                                   characters copy-start position)
-                                 (mask-comment
+                                 (remove-comment
                                   (text-between characters position end)))
-                           end nil false false true line-start value-start
+                           end nil false node-end? true line-start end
                            prefix-eligible?))
 
                   :else
-                  (let [[line-start value-start prefix-eligible?]
+                  (let [colon-after-node?
+                        (and (= character \:) node-end?)
+                        [line-start value-start prefix-eligible?]
                         (context-after-character
                          characters length position line-start value-start
-                         checked-prefix?)]
+                         checked-prefix?)
+                        value-start
+                        (if colon-after-node?
+                          (inc position)
+                          value-start)
+                        node-end?
+                        (cond
+                          (whitespace? character) node-end?
+                          (contains? #{\] \}} character) true
+                          :else false)]
                     (recur (inc position) ranges output copy-start nil
-                           false false false line-start value-start
+                           false node-end? false line-start value-start
                            prefix-eligible?)))))
             (recur position [[length length]] output copy-start quote
-                   escaped? quoted-end? after-comment? line-start
+                   escaped? node-end? after-comment? line-start
                    value-start prefix-eligible?)))))))
 
 (defn parse-events

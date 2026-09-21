@@ -24,9 +24,9 @@ var aotDirectFn9 lang.FnFunc2
 var aotDirectFn10 lang.FnFunc3
 var aotDirectFn11 lang.FnFunc3
 var aotDirectFn12 lang.FnFunc1
-var aotDirectFn13 lang.FnFunc1
-var aotDirectFn14 lang.FnFunc2
-var aotDirectFn15 lang.FnFunc2
+var aotDirectFn13 lang.FnFunc2
+var aotDirectFn14 lang.FnFunc3
+var aotDirectFn15 lang.FnFunc1
 var aotDirectFn16 lang.FnFunc1
 var aotDirectFn17 lang.FnFunc1
 var aotDirectFn18 lang.FnFunc3
@@ -245,7 +245,7 @@ func LoadNS() {
 	sym_line_DASH_comment_DASH_end := lang.NewSymbolUnchecked("line-comment-end")
 	sym_line_DASH_records := lang.NewSymbolUnchecked("line-records")
 	sym_line_DASH_start := lang.NewSymbolUnchecked("line-start")
-	sym_mask_DASH_comment := lang.NewSymbolUnchecked("mask-comment")
+	sym_node_DASH_end_QMARK_ := lang.NewSymbolUnchecked("node-end?")
 	sym_options_DASH_edn := lang.NewSymbolUnchecked("options-edn")
 	sym_parse := lang.NewSymbolUnchecked("parse")
 	sym_parse_DASH_events := lang.NewSymbolUnchecked("parse-events")
@@ -254,10 +254,10 @@ func LoadNS() {
 	sym_position := lang.NewSymbolUnchecked("position")
 	sym_prefix_DASH_eligible_QMARK_ := lang.NewSymbolUnchecked("prefix-eligible?")
 	sym_quote_DASH_start_QMARK_ := lang.NewSymbolUnchecked("quote-start?")
-	sym_quoted_DASH_end_QMARK_ := lang.NewSymbolUnchecked("quoted-end?")
 	sym_re_DASH_find := lang.NewSymbolUnchecked("re-find")
 	sym_re_DASH_matches := lang.NewSymbolUnchecked("re-matches")
 	sym_read_DASH_string := lang.NewSymbolUnchecked("read-string")
+	sym_remove_DASH_comment := lang.NewSymbolUnchecked("remove-comment")
 	sym_replace := lang.NewSymbolUnchecked("replace")
 	sym_replace_DASH_first := lang.NewSymbolUnchecked("replace-first")
 	sym_sanitize_DASH_comments := lang.NewSymbolUnchecked("sanitize-comments")
@@ -363,12 +363,12 @@ func LoadNS() {
 	var_yamlstar_DASH_plugin_DOT_json_DASH_comments_line_DASH_comment_DASH_end := lang.InternVarName(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments, sym_line_DASH_comment_DASH_end)
 	// var yamlstar-plugin.json-comments/line-records
 	var_yamlstar_DASH_plugin_DOT_json_DASH_comments_line_DASH_records := lang.InternVarName(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments, sym_line_DASH_records)
-	// var yamlstar-plugin.json-comments/mask-comment
-	var_yamlstar_DASH_plugin_DOT_json_DASH_comments_mask_DASH_comment := lang.InternVarName(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments, sym_mask_DASH_comment)
 	// var yamlstar-plugin.json-comments/parse-events
 	var_yamlstar_DASH_plugin_DOT_json_DASH_comments_parse_DASH_events := lang.InternVarName(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments, sym_parse_DASH_events)
 	// var yamlstar-plugin.json-comments/quote-start?
 	var_yamlstar_DASH_plugin_DOT_json_DASH_comments_quote_DASH_start_QMARK_ := lang.InternVarName(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments, sym_quote_DASH_start_QMARK_)
+	// var yamlstar-plugin.json-comments/remove-comment
+	var_yamlstar_DASH_plugin_DOT_json_DASH_comments_remove_DASH_comment := lang.InternVarName(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments, sym_remove_DASH_comment)
 	// var yamlstar-plugin.json-comments/sanitize-comments
 	var_yamlstar_DASH_plugin_DOT_json_DASH_comments_sanitize_DASH_comments := lang.InternVarName(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments, sym_sanitize_DASH_comments)
 	// var yamlstar-plugin.json-comments/structural-boundary?
@@ -381,12 +381,12 @@ func LoadNS() {
 	aotExternalFn14 := aotLinkFn1(var_clojure_DOT_string_trim)
 	aotExternalFn15 := aotLinkFn1(var_clojure_DOT_core_second)
 	aotExternalFn16 := aotLinkFn3(var_clojure_DOT_string_replace_DASH_first)
-	aotExternalFn17 := aotLinkFn3(var_clojure_DOT_string_replace)
-	aotExternalFn18 := aotLinkFn1(var_clojure_DOT_string_blank_QMARK_)
-	aotExternalFn19 := aotLinkFn1(var_clojure_DOT_core_read_DASH_string)
+	aotExternalFn17 := aotLinkFn1(var_clojure_DOT_string_blank_QMARK_)
+	aotExternalFn18 := aotLinkFn1(var_clojure_DOT_core_read_DASH_string)
 	aotExternalFn2 := aotLinkFn2(var_clojure_DOT_core_re_DASH_matches)
-	aotExternalFn21 := aotLinkFn2(var_clojure_DOT_core_ex_DASH_info)
-	aotExternalFn22 := aotLinkFn1(var_yaml_DASH_parser_DOT_core_parse)
+	aotExternalFn20 := aotLinkFn2(var_clojure_DOT_core_ex_DASH_info)
+	aotExternalFn21 := aotLinkFn1(var_yaml_DASH_parser_DOT_core_parse)
+	aotExternalFn22 := aotLinkFn3(var_clojure_DOT_string_replace)
 	aotExternalFn23 := aotLinkFn2(var_clojure_DOT_string_index_DASH_of)
 	aotExternalFn24 := aotLinkFn1(var_clojure_DOT_core_vec)
 	aotExternalFn26 := aotLinkFn1(var_clojure_DOT_string_join)
@@ -592,7 +592,7 @@ func LoadNS() {
 		aotDirectFn0 = tmp1
 		var_yamlstar_DASH_plugin_DOT_json_DASH_comments_advance_DASH_context = ns.InternWithValue(tmp0, tmp1, true)
 		var_yamlstar_DASH_plugin_DOT_json_DASH_comments_advance_DASH_context.SetMetaLazyMacro(func() lang.IPersistentMap {
-			return lang.NewMapUniqueKeys(kw_file, "yamlstar_plugin/json_comments.glj", kw_line, int(194), kw_column, int(8), kw_end_DASH_line, int(194), kw_end_DASH_column, int(22), kw_private, true, kw_arglists, lang.NewList(lang.NewVector(sym_characters, sym_length, sym_start, sym_end, sym_line_DASH_start, sym_value_DASH_start, sym_prefix_DASH_eligible_QMARK_)), kw_ns, lang.FindOrCreateNamespace(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments))
+			return lang.NewMapUniqueKeys(kw_file, "yamlstar_plugin/json_comments.glj", kw_line, int(196), kw_column, int(8), kw_end_DASH_line, int(196), kw_end_DASH_column, int(22), kw_private, true, kw_arglists, lang.NewList(lang.NewVector(sym_characters, sym_length, sym_start, sym_end, sym_line_DASH_start, sym_value_DASH_start, sym_prefix_DASH_eligible_QMARK_)), kw_ns, lang.FindOrCreateNamespace(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments))
 		}, false)
 	}
 	// block-comment-end
@@ -656,7 +656,7 @@ func LoadNS() {
 		aotDirectFn1 = tmp1
 		var_yamlstar_DASH_plugin_DOT_json_DASH_comments_block_DASH_comment_DASH_end = ns.InternWithValue(tmp0, tmp1, true)
 		var_yamlstar_DASH_plugin_DOT_json_DASH_comments_block_DASH_comment_DASH_end.SetMetaLazyMacro(func() lang.IPersistentMap {
-			return lang.NewMapUniqueKeys(kw_file, "yamlstar_plugin/json_comments.glj", kw_line, int(163), kw_column, int(8), kw_end_DASH_line, int(163), kw_end_DASH_column, int(24), kw_private, true, kw_arglists, lang.NewList(lang.NewVector(sym_characters, sym_length, sym_position)), kw_ns, lang.FindOrCreateNamespace(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments))
+			return lang.NewMapUniqueKeys(kw_file, "yamlstar_plugin/json_comments.glj", kw_line, int(165), kw_column, int(8), kw_end_DASH_line, int(165), kw_end_DASH_column, int(24), kw_private, true, kw_arglists, lang.NewList(lang.NewVector(sym_characters, sym_length, sym_position)), kw_ns, lang.FindOrCreateNamespace(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments))
 		}, false)
 	}
 	// block-header-pattern
@@ -955,7 +955,7 @@ func LoadNS() {
 										var tmp20 any
 										{ // let
 											// let binding "or__0__auto__"
-											tmp21 := aotDirectFn9(v2, v3)
+											tmp21 := lang.Equals(v7, v3)
 											var v22 any = tmp21
 											_ = v22
 											var tmp23 any
@@ -964,27 +964,41 @@ func LoadNS() {
 											} else {
 												var tmp24 any
 												{ // let
-													// let binding "previous"
-													tmp25 := lang.Numbers.Dec(v3)
-													tmp26 := runtime.RT.Nth(v2, lang.IntCast(tmp25))
-													var v27 any = tmp26
-													_ = v27
-													var tmp28 any
-													{ // let
-														// let binding "or__0__auto__"
-														tmp29 := aotDirectFn19(v27)
-														var v30 any = tmp29
-														_ = v30
-														var tmp31 any
-														if lang.IsTruthy(v30) {
-															tmp31 = v30
-														} else {
-															tmp32 := aotDirectFn17(v27)
-															tmp31 = tmp32
-														}
-														tmp28 = tmp31
-													} // end let
-													tmp24 = tmp28
+													// let binding "or__0__auto__"
+													tmp25 := aotDirectFn9(v2, v3)
+													var v26 any = tmp25
+													_ = v26
+													var tmp27 any
+													if lang.IsTruthy(v26) {
+														tmp27 = v26
+													} else {
+														var tmp28 any
+														{ // let
+															// let binding "previous"
+															tmp29 := lang.Numbers.Dec(v3)
+															tmp30 := runtime.RT.Nth(v2, lang.IntCast(tmp29))
+															var v31 any = tmp30
+															_ = v31
+															var tmp32 any
+															{ // let
+																// let binding "or__0__auto__"
+																tmp33 := aotDirectFn19(v31)
+																var v34 any = tmp33
+																_ = v34
+																var tmp35 any
+																if lang.IsTruthy(v34) {
+																	tmp35 = v34
+																} else {
+																	tmp36 := aotDirectFn17(v31)
+																	tmp35 = tmp36
+																}
+																tmp32 = tmp35
+															} // end let
+															tmp28 = tmp32
+														} // end let
+														tmp27 = tmp28
+													}
+													tmp24 = tmp27
 												} // end let
 												tmp23 = tmp24
 											}
@@ -1056,7 +1070,7 @@ func LoadNS() {
 		aotDirectFn5 = tmp1
 		var_yamlstar_DASH_plugin_DOT_json_DASH_comments_comment_DASH_boundary_QMARK_ = ns.InternWithValue(tmp0, tmp1, true)
 		var_yamlstar_DASH_plugin_DOT_json_DASH_comments_comment_DASH_boundary_QMARK_.SetMetaLazyMacro(func() lang.IPersistentMap {
-			return lang.NewMapUniqueKeys(kw_file, "yamlstar_plugin/json_comments.glj", kw_line, int(124), kw_column, int(8), kw_end_DASH_line, int(124), kw_end_DASH_column, int(24), kw_private, true, kw_arglists, lang.NewList(lang.NewVector(sym_characters, sym_position, sym_quoted_DASH_end_QMARK_, sym_after_DASH_comment_QMARK_, sym_line_DASH_start, sym_value_DASH_start, sym_prefix_DASH_eligible_QMARK_)), kw_ns, lang.FindOrCreateNamespace(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments))
+			return lang.NewMapUniqueKeys(kw_file, "yamlstar_plugin/json_comments.glj", kw_line, int(124), kw_column, int(8), kw_end_DASH_line, int(124), kw_end_DASH_column, int(24), kw_private, true, kw_arglists, lang.NewList(lang.NewVector(sym_characters, sym_position, sym_node_DASH_end_QMARK_, sym_after_DASH_comment_QMARK_, sym_line_DASH_start, sym_value_DASH_start, sym_prefix_DASH_eligible_QMARK_)), kw_ns, lang.FindOrCreateNamespace(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments))
 		}, false)
 	}
 	// context-after-character
@@ -1185,7 +1199,7 @@ func LoadNS() {
 		aotDirectFn6 = tmp1
 		var_yamlstar_DASH_plugin_DOT_json_DASH_comments_context_DASH_after_DASH_character = ns.InternWithValue(tmp0, tmp1, true)
 		var_yamlstar_DASH_plugin_DOT_json_DASH_comments_context_DASH_after_DASH_character.SetMetaLazyMacro(func() lang.IPersistentMap {
-			return lang.NewMapUniqueKeys(kw_file, "yamlstar_plugin/json_comments.glj", kw_line, int(173), kw_column, int(8), kw_end_DASH_line, int(173), kw_end_DASH_column, int(30), kw_private, true, kw_arglists, lang.NewList(lang.NewVector(sym_characters, sym_length, sym_position, sym_line_DASH_start, sym_value_DASH_start, sym_prefix_DASH_eligible_QMARK_)), kw_ns, lang.FindOrCreateNamespace(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments))
+			return lang.NewMapUniqueKeys(kw_file, "yamlstar_plugin/json_comments.glj", kw_line, int(175), kw_column, int(8), kw_end_DASH_line, int(175), kw_end_DASH_column, int(30), kw_private, true, kw_arglists, lang.NewList(lang.NewVector(sym_characters, sym_length, sym_position, sym_line_DASH_start, sym_value_DASH_start, sym_prefix_DASH_eligible_QMARK_)), kw_ns, lang.FindOrCreateNamespace(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments))
 		}, false)
 	}
 	// document-marker-before?
@@ -1374,7 +1388,7 @@ func LoadNS() {
 		aotDirectFn11 = tmp1
 		var_yamlstar_DASH_plugin_DOT_json_DASH_comments_line_DASH_comment_DASH_end = ns.InternWithValue(tmp0, tmp1, true)
 		var_yamlstar_DASH_plugin_DOT_json_DASH_comments_line_DASH_comment_DASH_end.SetMetaLazyMacro(func() lang.IPersistentMap {
-			return lang.NewMapUniqueKeys(kw_file, "yamlstar_plugin/json_comments.glj", kw_line, int(155), kw_column, int(8), kw_end_DASH_line, int(155), kw_end_DASH_column, int(23), kw_private, true, kw_arglists, lang.NewList(lang.NewVector(sym_characters, sym_length, sym_position)), kw_ns, lang.FindOrCreateNamespace(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments))
+			return lang.NewMapUniqueKeys(kw_file, "yamlstar_plugin/json_comments.glj", kw_line, int(157), kw_column, int(8), kw_end_DASH_line, int(157), kw_end_DASH_column, int(23), kw_private, true, kw_arglists, lang.NewList(lang.NewVector(sym_characters, sym_length, sym_position)), kw_ns, lang.FindOrCreateNamespace(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments))
 		}, false)
 	}
 	// line-records
@@ -1523,22 +1537,6 @@ func LoadNS() {
 			return lang.NewMapUniqueKeys(kw_file, "yamlstar_plugin/json_comments.glj", kw_line, int(23), kw_column, int(8), kw_end_DASH_line, int(23), kw_end_DASH_column, int(19), kw_private, true, kw_arglists, lang.NewList(lang.NewVector(sym_characters)), kw_ns, lang.FindOrCreateNamespace(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments))
 		}, false)
 	}
-	// mask-comment
-	{
-		tmp0 := sym_mask_DASH_comment
-		var tmp1 lang.FnFunc1
-		tmp1 = lang.FnFunc1(func(p0 any) any {
-			v2 := p0
-			_ = v2
-			tmp3 := aotExternalFn17(v2, closed7, " ")
-			return tmp3
-		})
-		aotDirectFn13 = tmp1
-		var_yamlstar_DASH_plugin_DOT_json_DASH_comments_mask_DASH_comment = ns.InternWithValue(tmp0, tmp1, true)
-		var_yamlstar_DASH_plugin_DOT_json_DASH_comments_mask_DASH_comment.SetMetaLazyMacro(func() lang.IPersistentMap {
-			return lang.NewMapUniqueKeys(kw_file, "yamlstar_plugin/json_comments.glj", kw_line, int(151), kw_column, int(8), kw_end_DASH_line, int(151), kw_end_DASH_column, int(19), kw_private, true, kw_arglists, lang.NewList(lang.NewVector(sym_comment)), kw_ns, lang.FindOrCreateNamespace(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments))
-		}, false)
-	}
 	// parse-events
 	{
 		tmp0 := sym_parse_DASH_events
@@ -1552,12 +1550,12 @@ func LoadNS() {
 			{ // let
 				// let binding "options"
 				var tmp5 any
-				tmp6 := aotExternalFn18(v3)
+				tmp6 := aotExternalFn17(v3)
 				if lang.IsTruthy(tmp6) {
 					tmp7 := lang.NewMap()
 					tmp5 = tmp7
 				} else {
-					tmp8 := aotExternalFn19(v3)
+					tmp8 := aotExternalFn18(v3)
 					tmp5 = tmp8
 				}
 				var v9 any = tmp5
@@ -1567,76 +1565,107 @@ func LoadNS() {
 				if tmp11 {
 				} else {
 					tmp12 := aotKeywordMapNew2(v9)
-					tmp13 := aotExternalFn21("Plugin options must be an EDN map", tmp12)
+					tmp13 := aotExternalFn20("Plugin options must be an EDN map", tmp12)
 					panic(tmp13)
 				}
 				_ = tmp10
 				tmp14 := aotDirectFn16(v2)
-				tmp15 := aotExternalFn22(tmp14)
+				tmp15 := aotExternalFn21(tmp14)
 				tmp4 = tmp15
 			} // end let
 			return tmp4
 		})
-		aotDirectFn14 = tmp1
+		aotDirectFn13 = tmp1
 		var_yamlstar_DASH_plugin_DOT_json_DASH_comments_parse_DASH_events = ns.InternWithValue(tmp0, tmp1, true)
 		var_yamlstar_DASH_plugin_DOT_json_DASH_comments_parse_DASH_events.SetMetaLazyMacro(func() lang.IPersistentMap {
-			return lang.NewMapUniqueKeys(kw_file, "yamlstar_plugin/json_comments.glj", kw_line, int(332), kw_column, int(7), kw_end_DASH_line, int(332), kw_end_DASH_column, int(18), kw_arglists, lang.NewList(lang.NewVector(sym_input, sym_options_DASH_edn)), kw_doc, "Parse input and return the event vector before transport encoding.", kw_ns, lang.FindOrCreateNamespace(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments))
+			return lang.NewMapUniqueKeys(kw_file, "yamlstar_plugin/json_comments.glj", kw_line, int(346), kw_column, int(7), kw_end_DASH_line, int(346), kw_end_DASH_column, int(18), kw_arglists, lang.NewList(lang.NewVector(sym_input, sym_options_DASH_edn)), kw_doc, "Parse input and return the event vector before transport encoding.", kw_ns, lang.FindOrCreateNamespace(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments))
 		}, false)
 	}
 	// quote-start?
 	{
 		tmp0 := sym_quote_DASH_start_QMARK_
-		var tmp1 lang.FnFunc2
-		tmp1 = lang.FnFunc2(func(p0, p1 any) any {
+		var tmp1 lang.FnFunc3
+		tmp1 = lang.FnFunc3(func(p0, p1, p2 any) any {
 			v2 := p0
 			_ = v2
 			v3 := p1
 			_ = v3
-			var tmp4 any
+			v4 := p2
+			_ = v4
+			var tmp5 any
 			{ // let
 				// let binding "or__0__auto__"
-				tmp5 := lang.Numbers.IsZero(v3)
-				var v6 any = tmp5
-				_ = v6
-				var tmp7 any
-				if lang.IsTruthy(v6) {
-					tmp7 = v6
+				tmp6 := lang.Numbers.IsZero(v3)
+				var v7 any = tmp6
+				_ = v7
+				var tmp8 any
+				if lang.IsTruthy(v7) {
+					tmp8 = v7
 				} else {
-					var tmp8 any
+					var tmp9 any
 					{ // let
-						// let binding "previous"
-						tmp9 := lang.Numbers.Dec(v3)
-						tmp10 := runtime.RT.Nth(v2, lang.IntCast(tmp9))
-						var v11 any = tmp10
-						_ = v11
-						var tmp12 any
-						{ // let
-							// let binding "or__0__auto__"
-							tmp13 := aotDirectFn19(v11)
-							var v14 any = tmp13
-							_ = v14
-							var tmp15 any
-							if lang.IsTruthy(v14) {
-								tmp15 = v14
-							} else {
-								tmp16 := lang.NewSet(lang.NewChar(44), lang.NewChar(58), lang.NewChar(91), lang.NewChar(123), lang.NewChar(63))
-								tmp17 := aotExternalFn13(tmp16, v11)
-								tmp15 = tmp17
-							}
-							tmp12 = tmp15
-						} // end let
-						tmp8 = tmp12
+						// let binding "or__0__auto__"
+						var v10 any = v4
+						_ = v10
+						var tmp11 any
+						if lang.IsTruthy(v10) {
+							tmp11 = v10
+						} else {
+							var tmp12 any
+							{ // let
+								// let binding "previous"
+								tmp13 := lang.Numbers.Dec(v3)
+								tmp14 := runtime.RT.Nth(v2, lang.IntCast(tmp13))
+								var v15 any = tmp14
+								_ = v15
+								var tmp16 any
+								{ // let
+									// let binding "or__0__auto__"
+									tmp17 := aotDirectFn19(v15)
+									var v18 any = tmp17
+									_ = v18
+									var tmp19 any
+									if lang.IsTruthy(v18) {
+										tmp19 = v18
+									} else {
+										tmp20 := lang.NewSet(lang.NewChar(44), lang.NewChar(58), lang.NewChar(91), lang.NewChar(123), lang.NewChar(63))
+										tmp21 := aotExternalFn13(tmp20, v15)
+										tmp19 = tmp21
+									}
+									tmp16 = tmp19
+								} // end let
+								tmp12 = tmp16
+							} // end let
+							tmp11 = tmp12
+						}
+						tmp9 = tmp11
 					} // end let
-					tmp7 = tmp8
+					tmp8 = tmp9
 				}
-				tmp4 = tmp7
+				tmp5 = tmp8
 			} // end let
-			return tmp4
+			return tmp5
 		})
-		aotDirectFn15 = tmp1
+		aotDirectFn14 = tmp1
 		var_yamlstar_DASH_plugin_DOT_json_DASH_comments_quote_DASH_start_QMARK_ = ns.InternWithValue(tmp0, tmp1, true)
 		var_yamlstar_DASH_plugin_DOT_json_DASH_comments_quote_DASH_start_QMARK_.SetMetaLazyMacro(func() lang.IPersistentMap {
-			return lang.NewMapUniqueKeys(kw_file, "yamlstar_plugin/json_comments.glj", kw_line, int(144), kw_column, int(8), kw_end_DASH_line, int(144), kw_end_DASH_column, int(19), kw_private, true, kw_arglists, lang.NewList(lang.NewVector(sym_characters, sym_position)), kw_ns, lang.FindOrCreateNamespace(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments))
+			return lang.NewMapUniqueKeys(kw_file, "yamlstar_plugin/json_comments.glj", kw_line, int(145), kw_column, int(8), kw_end_DASH_line, int(145), kw_end_DASH_column, int(19), kw_private, true, kw_arglists, lang.NewList(lang.NewVector(sym_characters, sym_position, sym_after_DASH_comment_QMARK_)), kw_ns, lang.FindOrCreateNamespace(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments))
+		}, false)
+	}
+	// remove-comment
+	{
+		tmp0 := sym_remove_DASH_comment
+		var tmp1 lang.FnFunc1
+		tmp1 = lang.FnFunc1(func(p0 any) any {
+			v2 := p0
+			_ = v2
+			tmp3 := aotExternalFn22(v2, closed7, "")
+			return tmp3
+		})
+		aotDirectFn15 = tmp1
+		var_yamlstar_DASH_plugin_DOT_json_DASH_comments_remove_DASH_comment = ns.InternWithValue(tmp0, tmp1, true)
+		var_yamlstar_DASH_plugin_DOT_json_DASH_comments_remove_DASH_comment.SetMetaLazyMacro(func() lang.IPersistentMap {
+			return lang.NewMapUniqueKeys(kw_file, "yamlstar_plugin/json_comments.glj", kw_line, int(153), kw_column, int(8), kw_end_DASH_line, int(153), kw_end_DASH_column, int(21), kw_private, true, kw_arglists, lang.NewList(lang.NewVector(sym_comment)), kw_ns, lang.FindOrCreateNamespace(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments))
 		}, false)
 	}
 	// sanitize-comments
@@ -1702,7 +1731,7 @@ func LoadNS() {
 						// let binding "escaped?"
 						var v19 any = false
 						_ = v19
-						// let binding "quoted-end?"
+						// let binding "node-end?"
 						var v20 any = false
 						_ = v20
 						// let binding "after-comment?"
@@ -2105,7 +2134,7 @@ func LoadNS() {
 																_ = v83
 																var tmp84 any
 																if lang.IsTruthy(v83) {
-																	tmp85 := aotDirectFn15(v7, v13)
+																	tmp85 := aotDirectFn14(v7, v13, v21)
 																	tmp84 = tmp85
 																} else {
 																	tmp84 = v83
@@ -2189,7 +2218,7 @@ func LoadNS() {
 																					tmp92 = v91
 																				} else {
 																					tmp93 := aotKeywordMapNew3(v13)
-																					tmp94 := aotExternalFn21("Unterminated block comment", tmp93)
+																					tmp94 := aotExternalFn20("Unterminated block comment", tmp93)
 																					panic(tmp94)
 																				}
 																				tmp88 = tmp92
@@ -2218,16 +2247,16 @@ func LoadNS() {
 																		var tmp99 any = v14
 																		tmp101 := aotDirectFn18(v7, v17, v13)
 																		tmp102 := aotDirectFn18(v7, v13, v89)
-																		tmp103 := aotDirectFn13(tmp102)
+																		tmp103 := aotDirectFn15(tmp102)
 																		tmp104 := aotExternalFn27(v16, tmp101, tmp103)
 																		var tmp100 any = tmp104
 																		var tmp105 any = v89
 																		var tmp106 any = nil
 																		var tmp107 any = false
-																		var tmp108 any = false
+																		var tmp108 any = v20
 																		var tmp109 any = true
 																		var tmp110 any = v93
-																		var tmp111 any = v95
+																		var tmp111 any = v89
 																		var tmp112 any = v97
 																		v13 = tmp98
 																		v14 = tmp99
@@ -2246,45 +2275,90 @@ func LoadNS() {
 																} else {
 																	var tmp84 any
 																	{ // let
-																		// let binding "vec__88"
-																		tmp85 := aotDirectFn6(v7, v11, v13, v22, v23, v76)
+																		// let binding "colon-after-node?"
+																		var tmp85 any
+																		{ // let
+																			// let binding "and__0__auto__"
+																			tmp86 := lang.Equals(v61, lang.NewChar(58))
+																			var v87 any = tmp86
+																			_ = v87
+																			var tmp88 any
+																			if lang.IsTruthy(v87) {
+																				tmp88 = v20
+																			} else {
+																				tmp88 = v87
+																			}
+																			tmp85 = tmp88
+																		} // end let
 																		var v86 any = tmp85
 																		_ = v86
-																		// let binding "line-start"
-																		tmp87 := runtime.RT.NthDefault(v86, lang.IntCast(int64(0)), nil)
+																		// let binding "vec__88"
+																		tmp87 := aotDirectFn6(v7, v11, v13, v22, v23, v76)
 																		var v88 any = tmp87
 																		_ = v88
-																		// let binding "value-start"
-																		tmp89 := runtime.RT.NthDefault(v86, lang.IntCast(int64(1)), nil)
+																		// let binding "line-start"
+																		tmp89 := runtime.RT.NthDefault(v88, lang.IntCast(int64(0)), nil)
 																		var v90 any = tmp89
 																		_ = v90
-																		// let binding "prefix-eligible?"
-																		tmp91 := runtime.RT.NthDefault(v86, lang.IntCast(int64(2)), nil)
+																		// let binding "value-start"
+																		tmp91 := runtime.RT.NthDefault(v88, lang.IntCast(int64(1)), nil)
 																		var v92 any = tmp91
 																		_ = v92
-																		tmp94 := lang.Numbers.Inc(v13)
-																		var tmp93 any = tmp94
-																		var tmp95 any = v14
-																		var tmp96 any = v16
-																		var tmp97 any = v17
-																		var tmp98 any = nil
-																		var tmp99 any = false
-																		var tmp100 any = false
-																		var tmp101 any = false
-																		var tmp102 any = v88
-																		var tmp103 any = v90
-																		var tmp104 any = v92
-																		v13 = tmp93
-																		v14 = tmp95
-																		v16 = tmp96
-																		v17 = tmp97
-																		v18 = tmp98
-																		v19 = tmp99
-																		v20 = tmp100
-																		v21 = tmp101
-																		v22 = tmp102
-																		v23 = tmp103
-																		v24 = tmp104
+																		// let binding "prefix-eligible?"
+																		tmp93 := runtime.RT.NthDefault(v88, lang.IntCast(int64(2)), nil)
+																		var v94 any = tmp93
+																		_ = v94
+																		// let binding "value-start"
+																		var tmp95 any
+																		if lang.IsTruthy(v86) {
+																			tmp96 := lang.Numbers.Inc(v13)
+																			tmp95 = tmp96
+																		} else {
+																			tmp95 = v92
+																		}
+																		var v97 any = tmp95
+																		_ = v97
+																		// let binding "node-end?"
+																		var tmp98 any
+																		tmp99 := aotDirectFn19(v61)
+																		if lang.IsTruthy(tmp99) {
+																			tmp98 = v20
+																		} else {
+																			var tmp100 any
+																			tmp101 := lang.NewSet(lang.NewChar(93), lang.NewChar(125))
+																			tmp102 := aotExternalFn13(tmp101, v61)
+																			if lang.IsTruthy(tmp102) {
+																				tmp100 = true
+																			} else {
+																				tmp100 = false
+																			}
+																			tmp98 = tmp100
+																		}
+																		var v103 any = tmp98
+																		_ = v103
+																		tmp105 := lang.Numbers.Inc(v13)
+																		var tmp104 any = tmp105
+																		var tmp106 any = v14
+																		var tmp107 any = v16
+																		var tmp108 any = v17
+																		var tmp109 any = nil
+																		var tmp110 any = false
+																		var tmp111 any = v103
+																		var tmp112 any = false
+																		var tmp113 any = v90
+																		var tmp114 any = v97
+																		var tmp115 any = v94
+																		v13 = tmp104
+																		v14 = tmp106
+																		v16 = tmp107
+																		v17 = tmp108
+																		v18 = tmp109
+																		v19 = tmp110
+																		v20 = tmp111
+																		v21 = tmp112
+																		v22 = tmp113
+																		v23 = tmp114
+																		v24 = tmp115
 																		continue
 																	} // end let
 																	tmp82 = tmp84
@@ -2346,7 +2420,7 @@ func LoadNS() {
 		aotDirectFn16 = tmp1
 		var_yamlstar_DASH_plugin_DOT_json_DASH_comments_sanitize_DASH_comments = ns.InternWithValue(tmp0, tmp1, true)
 		var_yamlstar_DASH_plugin_DOT_json_DASH_comments_sanitize_DASH_comments.SetMetaLazyMacro(func() lang.IPersistentMap {
-			return lang.NewMapUniqueKeys(kw_file, "yamlstar_plugin/json_comments.glj", kw_line, int(209), kw_column, int(7), kw_end_DASH_line, int(209), kw_end_DASH_column, int(23), kw_arglists, lang.NewList(lang.NewVector(sym_input)), kw_doc, "Replace JSON-style comments with spaces while preserving offsets.", kw_ns, lang.FindOrCreateNamespace(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments))
+			return lang.NewMapUniqueKeys(kw_file, "yamlstar_plugin/json_comments.glj", kw_line, int(211), kw_column, int(7), kw_end_DASH_line, int(211), kw_end_DASH_column, int(23), kw_arglists, lang.NewList(lang.NewVector(sym_input)), kw_doc, "Remove recognized JSON-style comments while preserving line endings.", kw_ns, lang.FindOrCreateNamespace(sym_yamlstar_DASH_plugin_DOT_json_DASH_comments))
 		}, false)
 	}
 	// structural-boundary?
