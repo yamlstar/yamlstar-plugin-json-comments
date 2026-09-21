@@ -1,5 +1,6 @@
 /.cache/
 /.cache-*/
+/.cpcache/
 /dist/
 /internal/glojure/.generated
 /lib/
@@ -12,3 +13,4 @@
 /python/lib/yamlstar_plugin_json_comments/License
 /python/lib/yamlstar_plugin_json_comments/__pycache__/
 /repos/
+/target/

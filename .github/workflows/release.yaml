@@ -80,15 +80,28 @@ jobs:
     - name: Generate Go sources
       run: make generate
 
-    - name: Check performance
-      run: make benchmark
-
     - name: Upload generated sources
       uses: actions/upload-artifact@v6
       with:
         name: generated-sources
         path: internal/glojure
         retention-days: 1
+
+  publish-clojars:
+    name: Publish JVM artifact
+    needs: create-release
+    runs-on: ubuntu-22.04
+    env:
+      CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+      CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
+    steps:
+    - name: Check out tag
+      uses: actions/checkout@v5
+      with:
+        ref: v${{ inputs.version }}
+
+    - name: Publish to Clojars
+      run: make deploy-clojars VERSION="$VERSION"
 
   build-linux:
     name: Build ${{ matrix.platform }}

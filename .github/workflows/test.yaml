@@ -23,9 +23,6 @@ jobs:
     - name: Generate Go sources
       run: make generate
 
-    - name: Check performance
-      run: make benchmark
-
     - name: Upload generated sources
       uses: actions/upload-artifact@v6
       with:

@@ -1,7 +1,7 @@
 # JSON Comments Syntax
 
 This plugin removes recognized JSON-style comments and sends the remaining
-input to the YAMLStar reference parser.
+input to the selected YAML parser.
 It extends YAML input with comments used by JSONC without adding other JSON5
 syntax.
 
@@ -50,7 +50,7 @@ contains `/*` or `//`.
 
 ## Removal and Positions
 
-Recognized comment text is removed before reference parsing.
+Recognized comment text is removed before parsing.
 Whitespace outside the comment is retained.
 For example, `{a: b /*xxxxx*/ c}` produces the scalar value `b  c` because the
 spaces on both sides of the block comment remain.

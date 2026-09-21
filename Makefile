@@ -14,6 +14,7 @@ include $M/init.mk
 include $M/gh.mk
 include $M/gloat.mk
 include $M/go.mk
+include $M/clojure.mk
 include $M/babashka.mk
 include $M/perl.mk
 include $M/docker.mk
@@ -33,9 +34,9 @@ include $M/shell.mk
 PYTHON-VENV-SETUP := \
   $(UV) pip install --python $(PYTHON-VENV) setuptools wheel
 
-VERSION := 0.1.8
+VERSION := 0.1.9
 MODULE := github.com/yamlstar/yamlstar-plugin-json-comments
-YAML-PARSER-VERSION := 0.2.4
+YAML-PARSER-VERSION := 0.2.5
 YAML-PARSER-FILE := yaml-parser-$(YAML-PARSER-VERSION).jar
 YAML-PARSER-JAR := .cache/$(YAML-PARSER-FILE)
 YAML-PARSER-BASE-URL := https://repo.clojars.org/org/yamlstar/yaml-parser
@@ -69,6 +70,9 @@ WHEEL-FILE := python/dist/$(WHEEL-PACKAGE)-$(VERSION)-$(WHEEL-TAG).whl
 WHEEL ?= $(WHEEL-FILE)
 WHEEL-TEST-VENV := .cache/wheel-test
 WHEEL-TEST-PYTHON := $(WHEEL-TEST-VENV)/bin/python
+CLOJURE-JAVA-OPTS := \
+  HOME=$(LOCAL-HOME) \
+  JAVA_TOOL_OPTIONS=-Duser.home=$(LOCAL-HOME)
 
 RELEASE-ARCH := $(if $(IS-INTEL),x64,\
   $(if $(IS-LINUX),aarch64,arm64))
@@ -108,7 +112,6 @@ PARSER_SOURCES := \
   $(SOURCE_CACHE)/yaml_parser/core.clj
 
 GLOAT_SOURCES := \
-  $(PARSER_SOURCES) \
   src/yamlstar_plugin/json_comments.clj
 
 MAKES-CLEAN := \
@@ -134,6 +137,12 @@ default:: build
 
 build: $(LIB)
 
+jar: $(CLOJURE)
+	$(CLOJURE-JAVA-OPTS) VERSION=$(VERSION) $(CLOJURE) -T:build jar
+
+deploy-clojars: $(CLOJURE)
+	$(CLOJURE-JAVA-OPTS) VERSION=$(VERSION) $(CLOJURE) -T:build deploy
+
 generate: $(GENERATED_DIR)/.generated
 
 test: $(LIB) $(PARSER_SOURCES) $(BB) $(SHELLCHECK)
@@ -143,18 +152,6 @@ test: $(LIB) $(PARSER_SOURCES) $(BB) $(SHELLCHECK)
 	$(call compile-abi-test,.cache/abi-test)
 	YAMLSTAR_LIBRARY_PATH=$(abspath lib) .cache/abi-test
 	$(SHELLCHECK) util/release util/test-archive
-
-benchmark: $(LIB)
-	YAMLSTAR_PERFORMANCE_TEST=1 $(GO) test \
-	  -run '^TestPerformance$$' -count=1 -timeout=45s -v
-
-benchmark-binary: $(LIB)
-	$(GO) test -run '^$$' -bench '^BenchmarkTransport$$' \
-	  -benchtime=1x -count=7 -timeout=30m
-
-binary-sizes: $(LIB)
-	YAMLSTAR_BINARY_SIZES=1 $(GO) test \
-	  -run '^TestBinaryWireSizes$$' -v -timeout=10m
 
 wheel: dist
 	$(MAKE) -o $(ARCHIVE) $(WHEEL-FILE) VERSION=$(VERSION) \
@@ -366,12 +363,21 @@ $(YAML-PARSER-JAR):
 	  '$(YAML-PARSER-URL)' -o '$@.tmp'
 	mv '$@.tmp' '$@'
 
+ifdef YAML_PARSER_DIR
+$(YAML-PARSER-SRC-STAMP):
+	rm -rf $(YAML-PARSER-SRC-DIR)
+	mkdir -p $(YAML-PARSER-SRC-DIR)/yaml_parser
+	cp $(YAML_PARSER_DIR)/src/yaml_parser/*.clj* \
+	  $(YAML-PARSER-SRC-DIR)/yaml_parser/
+	touch $@
+else
 $(YAML-PARSER-SRC-STAMP): $(YAML-PARSER-JAR)
 	rm -rf $(YAML-PARSER-SRC-DIR)
 	mkdir -p $(YAML-PARSER-SRC-DIR)
 	unzip -oq $< 'yaml_parser/*.clj' 'yaml_parser/*.cljc' \
 	  -d $(YAML-PARSER-SRC-DIR)
 	touch $@
+endif
 
 $(SOURCE_CACHE)/yaml_parser/%.clj: $(YAML-PARSER-SRC-STAMP)
 	@mkdir -p $(dir $@)
@@ -401,12 +407,12 @@ $(GENERATED_DIR)/.generated: go.mod $(GLOAT_SOURCES) $(GLOAT)
 	touch $@
 endif
 
-$(LIB): $(GENERATED_DIR)/.generated main.go binary.go plugin.edn \
+$(LIB): $(GENERATED_DIR)/.generated main.go plugin.edn \
   go.mod go.sum $(GO)
 	@mkdir -p $(dir $@)
 	$(GO) build -buildmode=c-shared -o $@ .
 
-$(RELEASE_LIB): $(GENERATED_DIR)/.generated main.go binary.go plugin.edn \
+$(RELEASE_LIB): $(GENERATED_DIR)/.generated main.go plugin.edn \
   go.mod go.sum $(GO)
 	@mkdir -p $(dir $@)
 	$(GO) build -trimpath -ldflags='-s -w' \

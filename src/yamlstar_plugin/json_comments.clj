@@ -1,7 +1,8 @@
 (ns yamlstar-plugin.json-comments
-  "JSON-style comment sanitizer and reference-parser entry point."
-  (:require [clojure.string :as str]
-            [yaml-parser.core :as parser]))
+  "JSON-style comment sanitizer."
+  (:require [clojure.string :as str]))
+
+(def version "0.1.9")
 
 (def ^:private json-token-pattern
   #"(?:null|true|false|-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)")
@@ -342,14 +343,3 @@
             (recur position [[length length]] output copy-start quote
                    escaped? node-end? after-comment? line-start
                    value-start prefix-eligible?)))))))
-
-(defn parse-events
-  "Parse input and return the event vector before transport encoding."
-  [input options-edn]
-  (let [options (if (str/blank? options-edn)
-                  {}
-                  (read-string options-edn))]
-    (when-not (map? options)
-      (throw (ex-info "Plugin options must be an EDN map"
-                      {:options options})))
-    (parser/parse (sanitize-comments input))))

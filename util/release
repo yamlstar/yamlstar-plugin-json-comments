@@ -44,15 +44,47 @@ abi_version() {
 }
 
 current_version() {
-  local manifest makefile abi
+  local manifest makefile abi sanitizer source build project entry label value
   manifest=$(manifest_version)
   makefile=$(make_version)
   abi=$(abi_version)
+  # shellcheck disable=SC2016
+  sanitizer=$(
+    "$perl" -ne 'print "$1\n" if /^const Version = "([^"]+)"/' \
+      sanitizer/sanitizer.go
+  )
+  # shellcheck disable=SC2016
+  source=$(
+    "$perl" -ne 'print "$1\n" if /^\(def version "([^"]+)"\)/' \
+      src/yamlstar_plugin/json_comments.clj
+  )
+  # shellcheck disable=SC2016
+  build=$(
+    "$perl" -ne \
+      'print "$1\n" if /"([0-9]+\.[0-9]+\.[0-9]+)-SNAPSHOT"/' \
+      build.clj
+  )
+  # shellcheck disable=SC2016
+  project=$(
+    "$perl" -ne \
+      'print "$1\n" if /^\(defproject .* "([0-9]+\.[0-9]+\.[0-9]+)-SNAPSHOT"/' \
+      project.clj
+  )
   [[ -n $manifest ]] || die 'No version found in plugin.edn'
   [[ $manifest == "$makefile" ]] ||
     die "Makefile version $makefile does not match plugin.edn $manifest"
   [[ $manifest == "$abi" ]] ||
     die "ABI test version $abi does not match plugin.edn $manifest"
+  for entry in \
+    "sanitizer:$sanitizer" \
+    "Clojure source:$source" \
+    "build.clj:$build" \
+    "project.clj:$project"; do
+    label=${entry%%:*}
+    value=${entry#*:}
+    [[ $manifest == "$value" ]] ||
+      die "$label version $value does not match plugin.edn $manifest"
+  done
   printf '%s\n' "$manifest"
 }
 
@@ -179,11 +211,37 @@ do_version_bump() {
     }
     s/^#define PLUGIN_VERSION "\Q$old\E"$/#define PLUGIN_VERSION "$new"/;
   ' test/abi.c
+  # shellcheck disable=SC2016
+  RELEASE_OLD=$current RELEASE_NEW=$new_version "$perl" -pi -e '
+    BEGIN {
+      $old = $ENV{RELEASE_OLD};
+      $new = $ENV{RELEASE_NEW};
+    }
+    s/^const Version = "\Q$old\E"$/const Version = "$new"/;
+  ' sanitizer/sanitizer.go
+  # shellcheck disable=SC2016
+  RELEASE_OLD=$current RELEASE_NEW=$new_version "$perl" -pi -e '
+    BEGIN {
+      $old = $ENV{RELEASE_OLD};
+      $new = $ENV{RELEASE_NEW};
+    }
+    s/^\(def version "\Q$old\E"\)$/\(def version "$new"\)/;
+  ' src/yamlstar_plugin/json_comments.clj
+  # shellcheck disable=SC2016
+  RELEASE_OLD=$current RELEASE_NEW=$new_version "$perl" -pi -e '
+    BEGIN {
+      $old = $ENV{RELEASE_OLD};
+      $new = $ENV{RELEASE_NEW};
+    }
+    s/"\Q$old\E-SNAPSHOT"/"$new-SNAPSHOT"/g;
+  ' build.clj project.clj
 
   [[ $(current_version) == "$new_version" ]] ||
     die 'Version bump did not update every version file'
   printf 'Bumped version from %s to %s\n' "$current" "$new_version"
-  git status --short -- Makefile plugin.edn test/abi.c
+  git status --short -- Makefile plugin.edn test/abi.c \
+    sanitizer/sanitizer.go src/yamlstar_plugin/json_comments.clj \
+    build.clj project.clj
 }
 
 do_commit() {
@@ -191,7 +249,11 @@ do_commit() {
   [[ $(current_version) == "$new_version" ]] ||
     die "Version files do not contain $new_version"
 
-  if [[ -z $(git status --porcelain -- Makefile plugin.edn test/abi.c) ]]; then
+  local version_files=(
+    Makefile plugin.edn test/abi.c sanitizer/sanitizer.go
+    src/yamlstar_plugin/json_comments.clj build.clj project.clj
+  )
+  if [[ -z $(git status --porcelain -- "${version_files[@]}") ]]; then
     printf 'No version changes to commit\n'
     return
   fi
@@ -201,7 +263,7 @@ do_commit() {
     return
   fi
 
-  git add Makefile plugin.edn test/abi.c
+  git add "${version_files[@]}"
   git commit \
     -m "Release plugin version $new_version" \
     -m "Update embedded manifest and build metadata for $new_version."
