@@ -51,6 +51,44 @@ func TestGoAndEDNEvents(t *testing.T) {
 	}
 }
 
+func TestCommentPlacement(t *testing.T) {
+	input := []byte("{\n" +
+		"/* top */\n" +
+		"/*0*/ /*1*/\"foo\"/*2*/ /*3*/:/*4*/ /*5*/" +
+		"false/*6*/ /*7*/,// 8\n" +
+		"// middle\n" +
+		"/*9*/\"bar\"/*10*/:/*11*/true//12\n" +
+		"/* bottom */\n" +
+		"}")
+	events, err := parser.Parse(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var scalars []string
+	for _, event := range events {
+		if event.Type == "scalar" {
+			scalars = append(scalars, event.Value)
+		}
+	}
+	if want := []string{"foo", "false", "bar", "true"}; !reflect.DeepEqual(scalars, want) {
+		t.Fatalf("scalar values: got %q, want %q", scalars, want)
+	}
+
+	events, err = parser.Parse([]byte("{a: b /*xxxxx*/ c}"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	scalars = scalars[:0]
+	for _, event := range events {
+		if event.Type == "scalar" {
+			scalars = append(scalars, event.Value)
+		}
+	}
+	if want := []string{"a", "b  c"}; !reflect.DeepEqual(scalars, want) {
+		t.Fatalf("scalar values: got %q, want %q", scalars, want)
+	}
+}
+
 func TestErrors(t *testing.T) {
 	for _, input := range [][]byte{[]byte("true/* unfinished"), {0xff}} {
 		if _, err := parser.Parse(input); err == nil {

@@ -43,7 +43,7 @@
            (scalar-values
             (str "double: \"http://example.com/* path */\"\n"
                  "single: '// text /* text */'\n"
-                 "literal: |\n"
+                 "literal: |/* header */\n"
                  "  // line\n"
                  "  /* block */\n"))))))
 
@@ -56,6 +56,35 @@
   (is (= ["true" "false"]
          (scalar-values
           "--- true// first\n.../* between */\n--- false\n"))))
+
+(deftest chained-comments-test
+  (let [input (str "{\n"
+                   "  /* top */\n"
+                   "  /*0*/ /*1*/\"foo\"/*2*/ /*3*/:"
+                   "/*4*/ /*5*/false/*6*/ /*7*/,// 8\n"
+                   "  // middle\n"
+                   "  /*9*/\"bar\"/*10*/:/*11*/true//12\n"
+                   "  /* bottom */\n"
+                   "}")]
+    (is (= ["foo" "false" "bar" "true"]
+           (scalar-values input)))))
+
+(deftest reported-placement-test
+  (doseq [input ["{\"0\":0}"
+                 "{\"0\":0/**/}"
+                 "{\"0\":/**/0/**/}"
+                 "{\"0\"/**/:0//\n}"
+                 "{/**/\"0\":0//\n}"
+                 "{\"0\"//\n:0//\n}"
+                 "{/**/\"0\"/**/:0}"
+                 "{/**/\"0\"//\n:0}"]]
+    (is (= ["0" "0"] (scalar-values input)) input)))
+
+(deftest removed-comment-test
+  (is (= ["a" "b  c"]
+         (scalar-values "{a: b /*xxxxx*/ c}")))
+  (is (= ["foo/*bar*/" "null"]
+         (scalar-values "{foo/*bar*/: null}"))))
 
 (deftest unchanged-input-events-test
   (let [input "a: 1\nb: [true, false]\nc: http://example.com\n"]
@@ -71,21 +100,19 @@
                      "\n")]
       (is (identical? input (comments/sanitize-comments input))))))
 
-(deftest sanitizer-offset-test
+(deftest sanitizer-line-ending-test
   (let [input (str "a: true// 注\r\n"
                    "b: false/* λ\nμ */\n")
         sanitized (comments/sanitize-comments input)]
-    (is (= (count input) (count sanitized)))
-    (is (= (str "a: true    \r\n"
-                "b: false    \n    \n")
+    (is (= (str "a: true\r\n"
+                "b: false\n\n")
            sanitized))))
 
 (deftest sanitizer-large-comment-test
   (let [prefix (apply str (repeat 50000 "a"))
         input (str "value: " prefix " // remove\n")
         sanitized (comments/sanitize-comments input)]
-    (is (= (count input) (count sanitized)))
-    (is (= (str "value: " prefix "          \n") sanitized))))
+    (is (= (str "value: " prefix " \n") sanitized))))
 
 (deftest errors-test
   (is (thrown-with-msg? Exception #"Unterminated block comment"

@@ -1,6 +1,6 @@
 # YAMLStar JSON Comments Plugin
 
-This repository builds the JSON comments parser plugin for YAMLStar.
+This repository builds the JSON comments event-source plugin for YAMLStar.
 The plugin accepts UTF-8 input through the YAMLStar shared-plugin ABI and
 returns YAMLStar parser events through EDN transport.
 
@@ -58,12 +58,11 @@ document and checks sanitizer scaling from 256 KiB to 1 MiB.
 Select the resulting library by adding its directory to the search path:
 
 ```sh
-YAMLSTAR_LIBRARY_PATH=$PWD/lib yaml --parser=json-comments
+YAMLSTAR_LIBRARY_PATH=$PWD/lib yaml --plugin=json-comments
 ```
 
-The plugin recognizes `//` line comments and `/* ... */` block comments.
-A comment can directly follow JSON literals and numbers.
-A comment after any other plain scalar requires separating whitespace.
+See the [syntax rules](Syntax.md) for the supported comment forms, placement,
+removal behavior, and scalar-content boundaries.
 
 ## Binary Releases
 
