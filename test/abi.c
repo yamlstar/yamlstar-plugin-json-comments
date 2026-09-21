@@ -1,7 +1,6 @@
 #include "yamlstar_plugin.h"
 
 #include <dlfcn.h>
-#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,18 +10,17 @@
 #endif
 
 #ifndef PLUGIN_VERSION
-#define PLUGIN_VERSION "0.1.8"
+#define PLUGIN_VERSION "0.1.9"
 #endif
 
 typedef uint64_t (*abi_fn)(void);
 typedef int32_t (*manifest_fn)(uint8_t **, size_t *);
-typedef int32_t (*parse_fn)(const uint8_t *, size_t, const uint8_t *,
-                           size_t, uint8_t **, size_t *);
+typedef int32_t (*transform_fn)(const uint8_t *, size_t, const uint8_t *,
+                               size_t, uint8_t **, size_t *);
 typedef void (*free_fn)(uint8_t *);
 
 struct api {
-    parse_fn parse;
-    parse_fn parse_binary;
+    transform_fn transform;
     free_fn free_output;
 };
 
@@ -31,11 +29,7 @@ static void fail(const char *message) {
     exit(1);
 }
 
-static char *take_output(
-    struct api *api,
-    uint8_t *output,
-    size_t length
-) {
+static char *take_output(struct api *api, uint8_t *output, size_t length) {
     char *text = malloc(length + 1);
     if (text == NULL) {
         fail("malloc failed");
@@ -46,53 +40,14 @@ static char *take_output(
     return text;
 }
 
-static char *parse(struct api *api, const char *input, int32_t *status) {
+static char *transform(struct api *api, const char *input, int32_t *status) {
     static const char options[] = "{}";
     uint8_t *output = NULL;
     size_t length = 0;
-    *status = api->parse_binary(
-        (const uint8_t *) input,
-        strlen(input),
-        (const uint8_t *) options,
-        strlen(options),
-        &output,
-        &length);
-    if (*status == 0 && (length < 16 || memcmp(output, "YEBP", 4))) {
-        fail("invalid binary event response");
-    }
+    *status = api->transform(
+        (const uint8_t *)input, strlen(input),
+        (const uint8_t *)options, strlen(options), &output, &length);
     return take_output(api, output, length);
-}
-
-static char *parse_edn(struct api *api, const char *input, int32_t *status) {
-    static const char options[] = "{}";
-    uint8_t *output = NULL;
-    size_t length = 0;
-    *status = api->parse(
-        (const uint8_t *) input, strlen(input),
-        (const uint8_t *) options, strlen(options), &output, &length);
-    return take_output(api, output, length);
-}
-
-static void *parse_repeatedly(void *argument) {
-    struct api *api = argument;
-    for (int attempt = 0; attempt < 10; attempt++) {
-        int32_t status;
-        char *output = parse(api, "value: true// comment\n", &status);
-        if (status != 0 || memcmp(output, "YEBP", 4) != 0) {
-            fail("concurrent parse failed");
-        }
-        free(output);
-        uint8_t *binary = NULL;
-        size_t length = 0;
-        status = api->parse_binary((const uint8_t *) "a: b", 4,
-                                   (const uint8_t *) "{}", 2,
-                                   &binary, &length);
-        if (status != 0 || length < 16 || memcmp(binary, "YEBP", 4)) {
-            fail("concurrent binary parse failed");
-        }
-        api->free_output(binary);
-    }
-    return NULL;
 }
 
 int main(void) {
@@ -109,23 +64,20 @@ int main(void) {
         fail(dlerror());
     }
 
-    abi_fn abi = (abi_fn) dlsym(handle, "yamlstar_plugin_v1_abi");
-    manifest_fn manifest = (manifest_fn) dlsym(
-        handle, "yamlstar_plugin_v1_manifest");
+    abi_fn abi = (abi_fn)dlsym(handle, "yamlstar_plugin_v2_abi");
+    manifest_fn manifest = (manifest_fn)dlsym(
+        handle, "yamlstar_plugin_v2_manifest");
     struct api api = {
-        .parse = (parse_fn) dlsym(handle, "yamlstar_plugin_v1_parse"),
-        .parse_binary = (parse_fn) dlsym(
-            handle, "yamlstar_plugin_v1_parse_binary"),
-        .free_output = (free_fn) dlsym(
-            handle, "yamlstar_plugin_v1_free"),
+        .transform = (transform_fn)dlsym(
+            handle, "yamlstar_plugin_v2_transform"),
+        .free_output = (free_fn)dlsym(handle, "yamlstar_plugin_v2_free"),
     };
-    if (abi == NULL || manifest == NULL || api.parse == NULL
-        || api.parse_binary == NULL
+    if (abi == NULL || manifest == NULL || api.transform == NULL
         || api.free_output == NULL) {
         fail("plugin ABI symbol is missing");
     }
-    if (abi() != 1) {
-        fail("plugin ABI version is not 1");
+    if (abi() != 2) {
+        fail("plugin ABI version is not 2");
     }
 
     uint8_t *manifest_output = NULL;
@@ -136,73 +88,28 @@ int main(void) {
     char *manifest_text = take_output(
         &api, manifest_output, manifest_length);
     if (strstr(manifest_text, ":api \"json-comments\"") == NULL
-        || strstr(manifest_text, ":kind \"event-source\"") == NULL
-        || strstr(manifest_text, ":event-format "
-                  "\"yamlstar-events-edn-v1\"") == NULL) {
-        fail("manifest API is incorrect");
-    }
-    if (strstr(manifest_text, ":version \"" PLUGIN_VERSION "\"")
-        == NULL) {
-        fail("manifest version is incorrect");
+        || strstr(manifest_text, ":kind \"text-transform\"") == NULL
+        || strstr(manifest_text, ":version \"" PLUGIN_VERSION "\"")
+           == NULL) {
+        fail("manifest is incorrect");
     }
     free(manifest_text);
 
     int32_t status;
-    char *edn = parse_edn(&api, "a: b // c", &status);
-    if (status != 0 || strstr(edn, ":value \"b\"") == NULL) {
-        fail("EDN parse result is incorrect");
-    }
-    free(edn);
-
-    edn = parse_edn(&api, "value: λ // comment\n", &status);
-    if (status != 0 || strstr(edn, ":value \"λ\"") == NULL) {
-        fail("EDN Unicode result is incorrect");
-    }
-    free(edn);
-
-    edn = parse_edn(&api, "value: true/* comment\n", &status);
-    if (status != 1 || strstr(edn, "Unterminated block comment") == NULL) {
-        fail("EDN parse error result is incorrect");
-    }
-    free(edn);
-
-    char *output = parse(
-        &api,
-        "a: true// comment\nb: foo// not a comment\n"
-        "c: foo // comment\nd: http://not-a-comment.com\n",
-        &status);
-    if (status != 0 || memcmp(output, "YEBP", 4) != 0) {
-        fail("parse result is incorrect");
+    char *output = transform(
+        &api, "a: true// comment\nb: http://example.com\n", &status);
+    if (status != 0
+        || strcmp(output, "a: true\nb: http://example.com\n") != 0) {
+        fail("transform result is incorrect");
     }
     free(output);
 
-    output = parse(&api, "value: true/* comment\n", &status);
+    output = transform(&api, "value: true/* comment\n", &status);
     if (status != 1 || strstr(output, "Unterminated block comment") == NULL) {
-        fail("parse error result is incorrect");
+        fail("transform error is incorrect");
     }
     free(output);
 
-    uint8_t *bad_output = NULL;
-    size_t bad_length = 0;
-    status = api.parse_binary(NULL, 1, NULL, 0, &bad_output, &bad_length);
-    if (status != 2) {
-        fail("binary ABI accepted a nil input with nonzero length");
-    }
-    api.free_output(bad_output);
-
-    pthread_t threads[4];
-    for (int index = 0; index < 4; index++) {
-        if (pthread_create(&threads[index], NULL,
-                           parse_repeatedly, &api) != 0) {
-            fail("pthread_create failed");
-        }
-    }
-    for (int index = 0; index < 4; index++) {
-        if (pthread_join(threads[index], NULL) != 0) {
-            fail("pthread_join failed");
-        }
-    }
-
-    puts("shared plugin ABI test passed");
+    dlclose(handle);
     return 0;
 }

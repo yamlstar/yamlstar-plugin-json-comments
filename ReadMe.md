@@ -1,39 +1,32 @@
 # YAMLStar JSON Comments Plugin
 
-This repository builds the JSON comments event-source plugin for YAMLStar.
-The plugin accepts UTF-8 input through the YAMLStar shared-plugin ABI and
-returns YAMLStar parser events through EDN transport.
+This repository provides the experimental `json-comments` plugin API's
+`sanitizer` implementation.
+It recognizes JSON-style comments in UTF-8 YAML source, removes their text,
+preserves their line endings, and passes the transformed source to the parser
+selected by the host.
 
-The optional binary event ABI uses
-`github.com/yamlstar/yaml-events-binary-protocol` v0.1.0, compiled into the
-plugin as a normal Go dependency.
-No separate protocol checkout or runtime library is needed.
-YAMLStar 0.1.21 uses the EDN event entry point.
-Hosts that support the binary entry point can use YEBP v1.
-Manifests, options, and error envelopes use EDN in both cases.
+The sanitizer is independent of a particular YAML parser.
+It can be combined with go-yaml, the YAML reference parser, SnakeYAML, or
+another parser implementation supplied by the host.
+See the [syntax rules](Syntax.md) for exact comment placement and scalar
+boundaries.
 
-Run `make benchmark-binary` to measure binary encoding and decoding.
-The native ABI test covers parsing, errors, and concurrent use.
-Binary transport preserves Unicode scalar values directly.
-The EDN response also preserves Unicode scalar values.
+## Go packages
 
-Version 0.1 supports Unix shared libraries.
-It deliberately has no installation or download side effects.
+The `sanitizer` package exposes the text transformation directly:
 
-The build downloads the same released reference-parser artifact used by
-YAMLStar:
+```go
+import "github.com/yamlstar/yamlstar-plugin-json-comments/sanitizer"
 
-```sh
-make build
+clean, err := sanitizer.Sanitize(
+    []byte("a: true // comment\n"),
+)
 ```
 
-The `parser` Go package embeds the generated reference parser for programs
-that need JSON-style comments without a shared library or C compiler.
-The generated Go sources are committed so the package builds through the
-normal Go module path.
-Starting with 0.1.8, release tags use the Go module format `v0.1.8`.
-Older `0.1.x` release tags remain available for existing YAMLStar installs.
-It uses the same Clojure source and comment sanitizer as the YAMLStar plugin:
+The `parser` package is a compatibility adapter for existing Go callers.
+It sanitizes the input and then uses
+`github.com/yamlstar/yamlstar-plugin-parser-reference`:
 
 ```go
 import "github.com/yamlstar/yamlstar-plugin-json-comments/parser"
@@ -41,39 +34,60 @@ import "github.com/yamlstar/yamlstar-plugin-json-comments/parser"
 events, err := parser.Parse([]byte("a: true // comment\n"))
 ```
 
-`Parse` buffers UTF-8 input and returns events without source positions or
-retained comments.
-Go callers can use it concurrently; parsing is serialized because the
-generated runtime has shared state.
+New hosts should compose `sanitizer.Sanitize` with their selected parser
+instead of depending on the compatibility adapter.
+Both packages are safe for concurrent callers.
 
-Run the performance regression gate with:
+## JVM artifact
 
-```sh
-make benchmark
+Clojure and Java hosts use the Clojars artifact directly:
+
+```clojure
+[org.yamlstar/yamlstar-plugin-json-comments "0.1.9"]
 ```
 
-This compares the plugin with the reference parser on a generated 240 KiB
-document and checks sanitizer scaling from 256 KiB to 1 MiB.
-
-Select the resulting library by adding its directory to the search path:
+The artifact contains the Clojure sanitizer source.
+It does not need a native library or GraalVM.
+Build it locally with:
 
 ```sh
-YAMLSTAR_LIBRARY_PATH=$PWD/lib yaml --plugin=json-comments
+make jar
 ```
 
-See the [syntax rules](Syntax.md) for the supported comment forms, placement,
-removal behavior, and scalar-content boundaries.
+Publish it manually with configured Clojars credentials by running:
 
-## Binary Releases
+```sh
+make deploy-clojars VERSION=0.1.9
+```
 
-Experimental releases provide native shared libraries for Linux and macOS on
-x86-64 and ARM64.
-Linux release libraries require glibc 2.28 or newer.
-The initial macOS artifacts are not Developer ID signed or notarized.
+## Native shared plugin
 
-The release archives use the same platform names as YAMLStar.
-The primary archive filenames and embedded manifest versions use the
-unprefixed version, even though new GitHub release tags start with `v`:
+The native plugin uses YAMLStar shared ABI version 2.
+Its manifest identifies plugin API `json-comments`, implementation
+`sanitizer`, version `0.1.9`, and kind `text-transform`.
+The transform input and successful output are raw UTF-8 bytes.
+Only the manifest and options value use EDN.
+
+Build the shared library with:
+
+```sh
+make build
+```
+
+Select it in YAMLStar after adding its directory to the library search path:
+
+```sh
+YAMLSTAR_LIBRARY_PATH=$PWD/lib \
+  yaml --plugin=json-comments
+```
+
+Version 0.1 supports Unix shared libraries.
+Linux releases require glibc 2.28 or newer.
+The macOS artifacts are not Developer ID signed or notarized.
+
+## Binary releases
+
+Release archives use YAMLStar platform names:
 
 ```text
 yamlstar-plugin-json-comments-VERSION-linux-x64.tar.xz
@@ -82,9 +96,10 @@ yamlstar-plugin-json-comments-VERSION-macos-x64.tar.xz
 yamlstar-plugin-json-comments-VERSION-macos-arm64.tar.xz
 ```
 
-Starting with 0.1.8, each release also includes an archive named with
-`vVERSION` and the same library under a `vVERSION` directory.
-This lets YAMLStar versions released before v-prefixed tags install the plugin.
+Git tags and GitHub releases use only the `vVERSION` form starting with
+`v0.1.9`.
+Archive names and embedded manifest versions remain unprefixed.
+Old tags and assets remain available.
 
 Install the library for the current user by copying it from the unpacked
 archive:
@@ -98,76 +113,47 @@ install -m 755 \
 
 Use the `.dylib` filename on macOS.
 
-## Python Wheels
+## Python wheels
 
-Install the plugin for the YAMLStar Python binding with:
+Install the native plugin for the YAMLStar Python binding with:
 
 ```sh
 pip install yamlstar-plugin-json-comments
 ```
 
-The package registers the plugin through the `yamlstar.plugins` entry-point
-group.
-YAMLStar bindings that support this entry point find the installed shared
-library automatically when `json-comments` is selected.
-The package also exposes `library_path()` and `library_dir()` from the
+The wheel registers the distribution through the `yamlstar.plugins` entry
+point and exposes `library_path()` and `library_dir()` from the
 `yamlstar_plugin_json_comments` module.
+Only platform wheels are published because an sdist would require compiling
+the plugin locally.
 
-Only platform wheels are published because installing from an sdist would
-require compiling the native plugin locally.
+## Release process
 
-Maintainers build and validate a release archive with:
-
-```sh
-make wheel VERSION=0.1.1
-```
-
-On Linux this runs the final shared-library build and archive checks in the
-pinned manylinux container, so Docker must be available.
-On macOS it builds natively and uses GNU tar as `gtar`.
-The wheel wraps the library from that validated archive.
-
-List the complete release process with:
+List the release steps with:
 
 ```sh
 make release-list
 ```
 
-Publish an already-versioned release with:
+After changing the source to the next version, run:
 
 ```sh
-make release v=0.1.8
+make release o=0.1.8 v=0.1.9
 ```
 
-For subsequent releases, provide the old and new versions:
+The command validates the source, commits the version bump, creates only the
+`v0.1.9` tag, and starts the GitHub release workflow.
+The workflow publishes the JVM artifact to Clojars, native archives and wheels
+to GitHub, and wheels to PyPI.
+The repository must provide `CLOJARS_USERNAME` and `CLOJARS_PASSWORD` secrets.
+Use `d=1` to preview the process.
+Use `a=1` to release from a branch other than `main`.
+
+Retry a failed workflow with:
 
 ```sh
-make release o=0.1.7 v=0.1.8
+make release-retry v=0.1.9
 ```
 
-The interactive command checks the version and working tree, updates the
-version files when needed, commits and tags the release, publishes the branch
-and tag, then dispatches and watches the GitHub release workflow.
-The workflow publishes the native archives and wheels to GitHub, then
-publishes the wheels to PyPI.
-PyPI trusted publishing must authorize the `release.yaml` workflow in the
-`pypi` GitHub environment for the
-`yamlstar/yamlstar-plugin-json-comments` repository.
-Use `d=1` to preview the release without changing anything.
-Use `a=1` to allow the full release command to run from a branch other than
-`main`.
-Retry a failed release workflow with:
-
-```sh
-make release-retry v=0.1.8
-```
-
-Before GitHub assets exist, retry starts a new workflow run against the same
-tag.
-If tagged source needs a fix, release a new version because Go module tags
-must not be moved.
-After assets exist, it reruns the failed jobs so a failed PyPI publication can
-resume without rebuilding or replacing immutable files.
-
-The GitHub release workflow requires a `v`-prefixed tag such as `v0.1.8`.
-It does not download, build, or test YAMLStar.
+A published Go module tag must never be moved.
+Release a new version when tagged source needs a fix.

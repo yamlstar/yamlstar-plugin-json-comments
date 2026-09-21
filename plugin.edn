@@ -1,7 +1,5 @@
-{:abi 1
+{:abi 2
  :api "json-comments"
- :name "json-comments"
- :version "0.1.8"
- :kind "event-source"
- :requires {:parser "reference"}
- :event-format "yamlstar-events-edn-v1"}
+ :name "sanitizer"
+ :version "0.1.9"
+ :kind "text-transform"}

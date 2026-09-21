@@ -9,53 +9,13 @@ import "C"
 import (
 	_ "embed"
 	"fmt"
-	"strconv"
-	"sync"
 	"unsafe"
 
-	"github.com/glojurelang/glojure/pkg/glj"
-	"github.com/glojurelang/glojure/pkg/lang"
-	binaryevents "github.com/yamlstar/yaml-events-binary-protocol/glojure"
-	"github.com/yamlstar/yamlstar-plugin-json-comments/internal/eventedn"
-	_ "github.com/yamlstar/yamlstar-plugin-json-comments/internal/glojure/pkg/yaml_parser/core"
-	_ "github.com/yamlstar/yamlstar-plugin-json-comments/internal/glojure/pkg/yaml_parser/grammar"
-	_ "github.com/yamlstar/yamlstar-plugin-json-comments/internal/glojure/pkg/yaml_parser/parser"
-	_ "github.com/yamlstar/yamlstar-plugin-json-comments/internal/glojure/pkg/yaml_parser/prelude"
-	_ "github.com/yamlstar/yamlstar-plugin-json-comments/internal/glojure/pkg/yaml_parser/receiver"
-	_ "github.com/yamlstar/yamlstar-plugin-json-comments/internal/glojure/pkg/yamlstar_plugin/json_comments"
+	"github.com/yamlstar/yamlstar-plugin-json-comments/sanitizer"
 )
 
 //go:embed plugin.edn
 var manifest string
-
-var initializeOnce sync.Once
-var initializeErr error
-
-func initialize() error {
-	initializeOnce.Do(func() {
-		defer func() {
-			if value := recover(); value != nil {
-				initializeErr = fmt.Errorf("initialize plugin: %v", value)
-			}
-		}()
-		require := glj.Var("clojure.core", "require")
-		for _, namespace := range []string{
-			"yaml-parser.prelude",
-			"yaml-parser.grammar",
-			"yaml-parser.parser",
-			"yaml-parser.receiver",
-			"yaml-parser.core",
-			"yamlstar-plugin.json-comments",
-		} {
-			require.Invoke(lang.NewSymbol(namespace))
-		}
-	})
-	return initializeErr
-}
-
-func writeOutput(text string, output **C.uint8_t, length *C.size_t) C.int32_t {
-	return writeBytes([]byte(text), output, length)
-}
 
 func writeBytes(data []byte, output **C.uint8_t, length *C.size_t) C.int32_t {
 	if output == nil || length == nil {
@@ -70,55 +30,21 @@ func writeBytes(data []byte, output **C.uint8_t, length *C.size_t) C.int32_t {
 	return 0
 }
 
-func parseBinary(input, options string) (output []byte, err error) {
-	if err := initialize(); err != nil {
-		return nil, err
-	}
-	defer func() {
-		if value := recover(); value != nil {
-			output = nil
-			err = fmt.Errorf("%v", value)
-		}
-	}()
-	value := glj.Var("yamlstar-plugin.json-comments", "parse-events").Invoke(input, options)
-	return binaryevents.Encode(value)
+//export yamlstar_plugin_v2_abi
+func yamlstar_plugin_v2_abi() C.uint64_t {
+	return 2
 }
 
-func parseEDN(input, options string) (output string, err error) {
-	if err := initialize(); err != nil {
-		return "", err
-	}
-	defer func() {
-		if value := recover(); value != nil {
-			output = ""
-			err = fmt.Errorf("%v", value)
-		}
-	}()
-	value := glj.Var("yamlstar-plugin.json-comments", "parse-events").Invoke(
-		input, options)
-	return eventedn.Encode(value)
-}
-
-func errorEDN(kind string, err error) string {
-	return "{:error {:type " + strconv.Quote(kind) +
-		" :message " + strconv.Quote(err.Error()) + " :data {}}}"
-}
-
-//export yamlstar_plugin_v1_abi
-func yamlstar_plugin_v1_abi() C.uint64_t {
-	return 1
-}
-
-//export yamlstar_plugin_v1_manifest
-func yamlstar_plugin_v1_manifest(
+//export yamlstar_plugin_v2_manifest
+func yamlstar_plugin_v2_manifest(
 	output **C.uint8_t,
 	length *C.size_t,
 ) C.int32_t {
-	return writeOutput(manifest, output, length)
+	return writeBytes([]byte(manifest), output, length)
 }
 
-//export yamlstar_plugin_v1_parse
-func yamlstar_plugin_v1_parse(
+//export yamlstar_plugin_v2_transform
+func yamlstar_plugin_v2_transform(
 	input *C.uint8_t, inputLength C.size_t,
 	options *C.uint8_t, optionsLength C.size_t,
 	output **C.uint8_t, outputLength *C.size_t,
@@ -132,25 +58,25 @@ func yamlstar_plugin_v1_parse(
 	if (input == nil && inputLength != 0) ||
 		(options == nil && optionsLength != 0) ||
 		uint64(inputLength) > maxLength || uint64(optionsLength) > maxLength {
-		_ = writeOutput(errorEDN("abi", fmt.Errorf("invalid input buffer")),
-			output, outputLength)
+		_ = writeBytes([]byte("invalid input buffer"), output, outputLength)
 		return 2
 	}
-	inputText := string(unsafe.Slice((*byte)(unsafe.Pointer(input)),
-		int(inputLength)))
-	optionsText := string(unsafe.Slice((*byte)(unsafe.Pointer(options)),
-		int(optionsLength)))
-	result, err := parseEDN(inputText, optionsText)
+	inputBytes := unsafe.Slice((*byte)(unsafe.Pointer(input)), int(inputLength))
+	result, err := sanitizer.Sanitize(inputBytes)
 	if err != nil {
-		_ = writeOutput(errorEDN("parse", err), output, outputLength)
+		_ = writeBytes([]byte(err.Error()), output, outputLength)
 		return 1
 	}
-	return writeOutput(result, output, outputLength)
+	return writeBytes(result, output, outputLength)
 }
 
-//export yamlstar_plugin_v1_free
-func yamlstar_plugin_v1_free(output *C.uint8_t) {
+//export yamlstar_plugin_v2_free
+func yamlstar_plugin_v2_free(output *C.uint8_t) {
 	C.free(unsafe.Pointer(output))
 }
 
-func main() {}
+func main() {
+	if manifest == "" {
+		panic(fmt.Errorf("plugin manifest is empty"))
+	}
+}

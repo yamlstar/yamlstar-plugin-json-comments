@@ -4,7 +4,7 @@ go 1.24
 
 require github.com/glojurelang/glojure v0.7.15
 
-require github.com/yamlstar/yaml-events-binary-protocol v0.1.0
+require github.com/yamlstar/yamlstar-plugin-parser-reference v0.2.5
 
 require (
 	bitbucket.org/pcastools/hash v1.0.5 // indirect

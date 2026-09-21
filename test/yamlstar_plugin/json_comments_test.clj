@@ -6,7 +6,7 @@
 
 (defn events
   [input]
-  (comments/parse-events input "{}"))
+  (parser/parse (comments/sanitize-comments input)))
 
 (defn scalar-values
   [input]
@@ -116,9 +116,7 @@
 
 (deftest errors-test
   (is (thrown-with-msg? Exception #"Unterminated block comment"
-                        (events "value: true/* comment\n")))
-  (is (thrown-with-msg? Exception #"options must be an EDN map"
-                        (comments/parse-events "x" "[]"))))
+                        (events "value: true/* comment\n"))))
 
 (defn -main
   [& _]

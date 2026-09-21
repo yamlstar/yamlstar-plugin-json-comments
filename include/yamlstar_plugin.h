@@ -8,13 +8,13 @@
 extern "C" {
 #endif
 
-uint64_t yamlstar_plugin_v1_abi(void);
+uint64_t yamlstar_plugin_v2_abi(void);
 
-int32_t yamlstar_plugin_v1_manifest(
+int32_t yamlstar_plugin_v2_manifest(
     uint8_t **output,
     size_t *output_length);
 
-int32_t yamlstar_plugin_v1_parse(
+int32_t yamlstar_plugin_v2_transform(
     const uint8_t *input,
     size_t input_length,
     const uint8_t *options_edn,
@@ -22,13 +22,7 @@ int32_t yamlstar_plugin_v1_parse(
     uint8_t **output,
     size_t *output_length);
 
-void yamlstar_plugin_v1_free(uint8_t *output);
-
-/* Optional YEBP v1 response. Errors remain EDN; free with the v1 function. */
-int32_t yamlstar_plugin_v1_parse_binary(
-    const uint8_t *input, size_t input_length,
-    const uint8_t *options_edn, size_t options_length,
-    uint8_t **output, size_t *output_length);
+void yamlstar_plugin_v2_free(uint8_t *output);
 
 #ifdef __cplusplus
 }
