@@ -1,9 +1,6 @@
-MAKES-COMMIT := a7b80ec8f10ac700693278a559f315fccd50b5ad
 M ?= .cache/makes
-$(shell test -d $M || { \
-  git clone -q https://github.com/makeplus/makes $M && \
-  git -C $M checkout -q $(MAKES-COMMIT); \
-})
+$(shell test -d $M || \
+  git clone -q https://github.com/makeplus/makes $M)
 
 GO-VERSION := 1.27.1
 BABASHKA-VERSION := 1.13.220
@@ -193,7 +190,6 @@ release-check: $(YAML-PARSER-SRC-STAMP)
 	[[ "$(VERSION)" =~ ^[0-9]+\.[0-9]+\.[0-9]+$$ ]]
 	test -f "$(YAML-PARSER-SRC-DIR)/yaml_parser/core.clj"
 	grep -Fq ':version "$(VERSION)"' plugin.edn
-	test "$$(git -C $M rev-parse HEAD)" = "$(MAKES-COMMIT)"
 	case "$(RELEASE_PLATFORM)" in \
 	  linux-x64|linux-aarch64|macos-x64|macos-arm64) ;; \
 	  *) echo "Unsupported release platform: $(RELEASE_PLATFORM)" >&2; \
