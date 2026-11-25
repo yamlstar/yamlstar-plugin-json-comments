@@ -1,5 +1,12 @@
 # YAMLStar JSON Comments Plugin
 
+> [!IMPORTANT]
+> This repository contains the retired sanitizer plugin released as v0.1.9.
+> It is no longer maintained and will receive no further releases.
+> Use
+> [yamlstar-plugin-parser-json-comments](https://github.com/yamlstar/yamlstar-plugin-parser-json-comments)
+> for current YAMLStar and go-yaml JSON-comments support.
+
 This repository provides the experimental `json-comments` plugin API's
 `sanitizer` implementation.
 It recognizes JSON-style comments in UTF-8 YAML source, removes their text,
